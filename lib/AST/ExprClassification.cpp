@@ -429,9 +429,6 @@ static Cl::Kinds ClassifyDecl(ASTContext &Ctx, const Decl *D) {
 /// unnamed value of the given type. This applies in particular to function
 /// calls and casts.
 static Cl::Kinds ClassifyUnnamed(ASTContext &Ctx, QualType T) {
-  // In C, function calls are always rvalues.
-  if (!Ctx.getLangOpts().CPlusPlus) return Cl::CL_PRValue;
-
   // C++ [expr.call]p10: A function call is an lvalue if the result type is an
   //   lvalue reference type or an rvalue reference to function type, an xvalue
   //   if the result type is an rvalue reference to object type, and a prvalue
@@ -441,6 +438,9 @@ static Cl::Kinds ClassifyUnnamed(ASTContext &Ctx, QualType T) {
   const RValueReferenceType *RV = T->getAs<RValueReferenceType>();
   if (!RV) // Could still be a class temporary, though.
     return ClassifyTemporary(T);
+
+  // In C, function calls are always rvalues.
+  if (!Ctx.getLangOpts().CPlusPlus) return Cl::CL_PRValue;
 
   return RV->getPointeeType()->isFunctionType() ? Cl::CL_LValue : Cl::CL_XValue;
 }
