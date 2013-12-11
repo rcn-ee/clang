@@ -3181,7 +3181,7 @@ Value *CodeGenFunction::EmitARMBuiltinExpr(unsigned BuiltinID,
       case Builtin::BI_extu :   id = Intrinsic::_extu; n = 3; break;
       case Builtin::BI_ext :    id = Intrinsic::_ext; n = 3; break;
       case Builtin::BI_set :    id = Intrinsic::_set; n = 3; break;
-      case Builtin::BI_clr :    id = Intrinsic::_clr; n = 2; break;
+      case Builtin::BI_clr :    id = Intrinsic::_clr; n = 3; break;
       case Builtin::BI_extur :  id = Intrinsic::_extur; n = 2; break;
       case Builtin::BI_extr : id = Intrinsic::_extr; n = 2; break;
       case Builtin::BI_setr : id = Intrinsic::_setr; n = 2; break;
