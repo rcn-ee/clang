@@ -707,11 +707,6 @@ LANGBUILTIN(_InterlockedExchange, "LiLiD*Li", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__readfsdword, "ULiULi", "n", ALL_MS_LANGUAGES)
 
 // TI generic 
-BUILTIN(abs, "ii", "n")
-BUILTIN(labs, "LiLi", "n")
-BUILTIN(llabs, "LLiLLi", "n")
-//BUILTIN(fabs, "dd", "n")
-//BUILTIN(fabsf, "ff", "n")
 BUILTIN(_assert, "vicC*", "n")
 BUILTIN(_nassert, "vi", "n")
 // C6x Intrinsics
