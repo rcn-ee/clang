@@ -33,6 +33,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/Debug.h"
 
 namespace llvm {
@@ -2397,6 +2398,12 @@ public:
   llvm::Value *EmitX86BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
   llvm::Value *EmitPPCBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
   llvm::Value *EmitR600BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  llvm::Value *EmitIntrinsicCall(llvm::Intrinsic::ID id, unsigned num_arg, 
+                                 const CallExpr *E);
+  llvm::Value *EmitTIBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  llvm::Value *EmitC6000BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  llvm::Value *EmitC7000BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  llvm::Value *EmitMSP430BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
   llvm::Value *EmitObjCProtocolExpr(const ObjCProtocolExpr *E);
   llvm::Value *EmitObjCStringLiteral(const ObjCStringLiteral *E);

@@ -1652,18 +1652,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
   }
 
-  // If this is an alias for a lib function (e.g. __builtin_sin), emit
-  // the call using the normal call path, but using the unmangled
-  // version of the function name.
-  if (getContext().BuiltinInfo.isLibFunction(BuiltinID))
-    return emitLibraryCall(*this, FD, E,
-                           CGM.getBuiltinLibFunction(FD, BuiltinID));
-
-  // If this is a predefined lib function (e.g. malloc), emit the call
-  // using exactly the normal call path.
-  if (getContext().BuiltinInfo.isPredefinedLibFunction(BuiltinID))
-    return emitLibraryCall(*this, FD, E, EmitScalarExpr(E->getCallee()));
-
   // See if we have a target specific intrinsic.
   const char *Name = getContext().BuiltinInfo.GetName(BuiltinID);
   Intrinsic::ID IntrinsicID = Intrinsic::not_intrinsic;
@@ -1737,6 +1725,18 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   if (Value *V = EmitTargetBuiltinExpr(BuiltinID, E))
     return RValue::get(V);
 
+  // If this is an alias for a lib function (e.g. __builtin_sin), emit
+  // the call using the normal call path, but using the unmangled
+  // version of the function name.
+  if (getContext().BuiltinInfo.isLibFunction(BuiltinID))
+    return emitLibraryCall(*this, FD, E,
+                           CGM.getBuiltinLibFunction(FD, BuiltinID));
+
+  // If this is a predefined lib function (e.g. malloc), emit the call
+  // using exactly the normal call path.
+  if (getContext().BuiltinInfo.isPredefinedLibFunction(BuiltinID))
+    return emitLibraryCall(*this, FD, E, EmitScalarExpr(E->getCallee()));
+
   ErrorUnsupported(E, "builtin function");
 
   // Unknown builtin, for now just dump it out and return undef.
@@ -1764,6 +1764,12 @@ Value *CodeGenFunction::EmitTargetBuiltinExpr(unsigned BuiltinID,
   case llvm::Triple::r600:
   case llvm::Triple::amdgcn:
     return EmitR600BuiltinExpr(BuiltinID, E);
+  case llvm::Triple::c6000:
+    return EmitC6000BuiltinExpr(BuiltinID, E);
+  case llvm::Triple::c7000:
+    return EmitC7000BuiltinExpr(BuiltinID, E);
+  case llvm::Triple::msp430:
+    return EmitMSP430BuiltinExpr(BuiltinID, E);
   default:
     return nullptr;
   }
@@ -3165,229 +3171,6 @@ Value *CodeGenFunction::GetValueForARMHint(unsigned BuiltinID) {
 
 Value *CodeGenFunction::EmitARMBuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {
-   Intrinsic::ID id = Intrinsic::not_intrinsic;
-   int           n  = 0;
-
-   switch (BuiltinID)
-   {
-      case Builtin::BIabs   : id = Intrinsic::abs; n = 1; break;
-      case Builtin::BIlabs  : id = Intrinsic::labs; n = 1; break;
-      case Builtin::BIllabs : id = Intrinsic::llabs; n = 1; break;
-      case Builtin::BIfabs  : id = Intrinsic::fabs; n = 1; break;
-      case Builtin::BIfabsf : id = Intrinsic::fabsf; n = 1; break;
-      case Builtin::BI_assert: id = Intrinsic::_assert; n = 2; break;
-      case Builtin::BI_nassert: id = Intrinsic::_nassert; n = 1; break;
-
-      case Builtin::BI_extu :   id = Intrinsic::_extu; n = 3; break;
-      case Builtin::BI_ext :    id = Intrinsic::_ext; n = 3; break;
-      case Builtin::BI_set :    id = Intrinsic::_set; n = 3; break;
-      case Builtin::BI_clr :    id = Intrinsic::_clr; n = 3; break;
-      case Builtin::BI_extur :  id = Intrinsic::_extur; n = 2; break;
-      case Builtin::BI_extr : id = Intrinsic::_extr; n = 2; break;
-      case Builtin::BI_setr : id = Intrinsic::_setr; n = 2; break;
-      case Builtin::BI_clrr : id = Intrinsic::_clrr; n = 2; break;
-      case Builtin::BI_sadd : id = Intrinsic::_sadd; n = 2; break;
-      case Builtin::BI_ssub : id = Intrinsic::_ssub; n = 2; break;
-      case Builtin::BI_sshl : id = Intrinsic::_sshl; n = 2; break;
-      case Builtin::BI_add2 : id = Intrinsic::_add2; n = 2; break;
-      case Builtin::BI_sub2 : id = Intrinsic::_sub2; n = 2; break;
-      case Builtin::BI_subc : id = Intrinsic::_subc; n = 2; break;
-      case Builtin::BI_lmbd : id = Intrinsic::_lmbd; n = 2; break;
-      case Builtin::BI_abs : id = Intrinsic::_abs; n = 1; break;
-      case Builtin::BI_labs : id = Intrinsic::_labs; n = 1; break;
-      case Builtin::BI_norm : id = Intrinsic::_norm; n = 1; break;
-      case Builtin::BI_smpy : id = Intrinsic::_smpy; n = 2; break;
-      case Builtin::BI_smpyhl : id = Intrinsic::_smpyhl; n = 2; break;
-      case Builtin::BI_smpylh : id = Intrinsic::_smpylh; n = 2; break;
-      case Builtin::BI_smpyh : id = Intrinsic::_smpyh; n = 2; break;
-      case Builtin::BI_mpy : id = Intrinsic::_mpy; n = 2; break;
-      case Builtin::BI_mpyus : id = Intrinsic::_mpyus; n = 2; break;
-      case Builtin::BI_mpysu : id = Intrinsic::_mpysu; n = 2; break;
-      case Builtin::BI_mpyu : id = Intrinsic::_mpyu; n = 2; break;
-      case Builtin::BI_mpyhl : id = Intrinsic::_mpyhl; n = 2; break;
-      case Builtin::BI_mpyhuls : id = Intrinsic::_mpyhuls; n = 2; break;
-      case Builtin::BI_mpyhslu : id = Intrinsic::_mpyhslu; n = 2; break;
-      case Builtin::BI_mpyhlu : id = Intrinsic::_mpyhlu; n = 2; break;
-      case Builtin::BI_mpylh : id = Intrinsic::_mpylh; n = 2; break;
-      case Builtin::BI_mpyluhs : id = Intrinsic::_mpyluhs; n = 2; break;
-      case Builtin::BI_mpylshu : id = Intrinsic::_mpylshu; n = 2; break;
-      case Builtin::BI_mpylhu : id = Intrinsic::_mpylhu; n = 2; break;
-      case Builtin::BI_mpyh : id = Intrinsic::_mpyh; n = 2; break;
-      case Builtin::BI_mpyhus : id = Intrinsic::_mpyhus; n = 2; break;
-      case Builtin::BI_mpyhsu : id = Intrinsic::_mpyhsu; n = 2; break;
-      case Builtin::BI_mpyhu : id = Intrinsic::_mpyhu; n = 2; break;
-      case Builtin::BI_lsadd : id = Intrinsic::_lsadd; n = 2; break;
-      case Builtin::BI_lssub : id = Intrinsic::_lssub; n = 2; break;
-      case Builtin::BI_sat : id = Intrinsic::_sat; n = 1; break;
-      case Builtin::BI_lnorm : id = Intrinsic::_lnorm; n = 1; break;
-      case Builtin::BI_fabs : id = Intrinsic::_fabs; n = 1; break;
-      case Builtin::BI_fabsf : id = Intrinsic::_fabsf; n = 1; break;
-      case Builtin::BI_mpyid : id = Intrinsic::_mpyid; n = 2; break;
-      case Builtin::BI_mpyidll : id = Intrinsic::_mpyidll; n = 2; break;
-      case Builtin::BI_spint : id = Intrinsic::_spint; n = 1; break;
-      case Builtin::BI_dpint : id = Intrinsic::_dpint; n = 1; break;
-      case Builtin::BI_rcpsp : id = Intrinsic::_rcpsp; n = 1; break;
-      case Builtin::BI_rcpdp : id = Intrinsic::_rcpdp; n = 1; break;
-      case Builtin::BI_rsqrsp : id = Intrinsic::_rsqrsp; n = 1; break;
-      case Builtin::BI_rsqrdp : id = Intrinsic::_rsqrdp; n = 1; break;
-      case Builtin::BI_hi : id = Intrinsic::_hi; n = 1; break;
-      case Builtin::BI_hill : id = Intrinsic::_hill; n = 1; break;
-      case Builtin::BI_lo : id = Intrinsic::_lo; n = 1; break;
-      case Builtin::BI_loll : id = Intrinsic::_loll; n = 1; break;
-      case Builtin::BI_itod : id = Intrinsic::_itod; n = 2; break;
-      case Builtin::BI_itoll : id = Intrinsic::_itoll; n = 2; break;
-      case Builtin::BI_itof : id = Intrinsic::_itof; n = 1; break;
-      case Builtin::BI_ftoi : id = Intrinsic::_ftoi; n = 1; break;
-      case Builtin::BI_add4 : id = Intrinsic::_add4; n = 2; break;
-      case Builtin::BI_avg2 : id = Intrinsic::_avg2; n = 2; break;
-      case Builtin::BI_avgu4 : id = Intrinsic::_avgu4; n = 2; break;
-      case Builtin::BI_cmpeq2 : id = Intrinsic::_cmpeq2; n = 2; break;
-      case Builtin::BI_cmpeq4 : id = Intrinsic::_cmpeq4; n = 2; break;
-      case Builtin::BI_cmpgt2 : id = Intrinsic::_cmpgt2; n = 2; break;
-      case Builtin::BI_cmpgtu4 : id = Intrinsic::_cmpgtu4; n = 2; break;
-      case Builtin::BI_dotp2 : id = Intrinsic::_dotp2; n = 2; break;
-      case Builtin::BI_dotpn2 : id = Intrinsic::_dotpn2; n = 2; break;
-      case Builtin::BI_dotpnrsu2 : id = Intrinsic::_dotpnrsu2; n = 2; break;
-      case Builtin::BI_dotprsu2 : id = Intrinsic::_dotprsu2; n = 2; break;
-      case Builtin::BI_dotpsu4 : id = Intrinsic::_dotpsu4; n = 2; break;
-      case Builtin::BI_dotpu4 : id = Intrinsic::_dotpu4; n = 2; break;
-      case Builtin::BI_gmpy4 : id = Intrinsic::_gmpy4; n = 2; break;
-      case Builtin::BI_ldotp2 : id = Intrinsic::_ldotp2; n = 2; break;
-      case Builtin::BI_max2 : id = Intrinsic::_max2; n = 2; break;
-      case Builtin::BI_maxu4 : id = Intrinsic::_maxu4; n = 2; break;
-      case Builtin::BI_min2 : id = Intrinsic::_min2; n = 2; break;
-      case Builtin::BI_minu4 : id = Intrinsic::_minu4; n = 2; break;
-      case Builtin::BI_mpy2 : id = Intrinsic::_mpy2; n = 2; break;
-      case Builtin::BI_mpy2ll : id = Intrinsic::_mpy2ll; n = 2; break;
-      case Builtin::BI_mpyhi : id = Intrinsic::_mpyhi; n = 2; break;
-      case Builtin::BI_mpyhill : id = Intrinsic::_mpyhill; n = 2; break;
-      case Builtin::BI_mpyhir : id = Intrinsic::_mpyhir; n = 2; break;
-      case Builtin::BI_mpyli : id = Intrinsic::_mpyli; n = 2; break;
-      case Builtin::BI_mpylill : id = Intrinsic::_mpylill; n = 2; break;
-      case Builtin::BI_mpylir : id = Intrinsic::_mpylir; n = 2; break;
-      case Builtin::BI_mpysu4 : id = Intrinsic::_mpysu4; n = 2; break;
-      case Builtin::BI_mpysu4ll : id = Intrinsic::_mpysu4ll; n = 2; break;
-      case Builtin::BI_mpyu4 : id = Intrinsic::_mpyu4; n = 2; break;
-      case Builtin::BI_mpyu4ll : id = Intrinsic::_mpyu4ll; n = 2; break;
-      case Builtin::BI_pack2 : id = Intrinsic::_pack2; n = 2; break;
-      case Builtin::BI_packh2 : id = Intrinsic::_packh2; n = 2; break;
-      case Builtin::BI_packh4 : id = Intrinsic::_packh4; n = 2; break;
-      case Builtin::BI_packhl2 : id = Intrinsic::_packhl2; n = 2; break;
-      case Builtin::BI_packl4 : id = Intrinsic::_packl4; n = 2; break;
-      case Builtin::BI_packlh2 : id = Intrinsic::_packlh2; n = 2; break;
-      case Builtin::BI_rotl : id = Intrinsic::_rotl; n = 2; break;
-      case Builtin::BI_sadd2 : id = Intrinsic::_sadd2; n = 2; break;
-      case Builtin::BI_saddu4 : id = Intrinsic::_saddu4; n = 2; break;
-      case Builtin::BI_saddus2 : id = Intrinsic::_saddus2; n = 2; break;
-      case Builtin::BI_shlmb : id = Intrinsic::_shlmb; n = 2; break;
-      case Builtin::BI_shr2 : id = Intrinsic::_shr2; n = 2; break;
-      case Builtin::BI_shrmb : id = Intrinsic::_shrmb; n = 2; break;
-      case Builtin::BI_shru2 : id = Intrinsic::_shru2; n = 2; break;
-      case Builtin::BI_smpy2 : id = Intrinsic::_smpy2; n = 2; break;
-      case Builtin::BI_smpy2ll : id = Intrinsic::_smpy2ll; n = 2; break;
-      case Builtin::BI_spack2 : id = Intrinsic::_spack2; n = 2; break;
-      case Builtin::BI_spacku4 : id = Intrinsic::_spacku4; n = 2; break;
-      case Builtin::BI_sshvl : id = Intrinsic::_sshvl; n = 2; break;
-      case Builtin::BI_sshvr : id = Intrinsic::_sshvr; n = 2; break;
-      case Builtin::BI_sub4 : id = Intrinsic::_sub4; n = 2; break;
-      case Builtin::BI_subabs4 : id = Intrinsic::_subabs4; n = 2; break;
-      case Builtin::BI_abs2 : id = Intrinsic::_abs2; n = 1; break;
-      case Builtin::BI_bitc4 : id = Intrinsic::_bitc4; n = 1; break;
-      case Builtin::BI_bitr : id = Intrinsic::_bitr; n = 1; break;
-      case Builtin::BI_deal : id = Intrinsic::_deal; n = 1; break;
-      case Builtin::BI_mvd : id = Intrinsic::_mvd; n = 1; break;
-      case Builtin::BI_shfl : id = Intrinsic::_shfl; n = 1; break;
-      case Builtin::BI_swap4 : id = Intrinsic::_swap4; n = 1; break;
-      case Builtin::BI_unpkhu4 : id = Intrinsic::_unpkhu4; n = 1; break;
-      case Builtin::BI_unpklu4 : id = Intrinsic::_unpklu4; n = 1; break;
-      case Builtin::BI_xpnd2 : id = Intrinsic::_xpnd2; n = 1; break;
-      case Builtin::BI_xpnd4 : id = Intrinsic::_xpnd4; n = 1; break;
-      case Builtin::BI_addsub : id = Intrinsic::_addsub; n = 2; break;
-      case Builtin::BI_addsub2 : id = Intrinsic::_addsub2; n = 2; break;
-      case Builtin::BI_cmpy : id = Intrinsic::_cmpy; n = 2; break;
-      case Builtin::BI_cmpyr : id = Intrinsic::_cmpyr; n = 2; break;
-      case Builtin::BI_cmpyr1 : id = Intrinsic::_cmpyr1; n = 2; break;
-      case Builtin::BI_ddotph2 : id = Intrinsic::_ddotph2; n = 2; break;
-      case Builtin::BI_ddotph2r : id = Intrinsic::_ddotph2r; n = 2; break;
-      case Builtin::BI_ddotpl2 : id = Intrinsic::_ddotpl2; n = 2; break;
-      case Builtin::BI_ddotpl2r : id = Intrinsic::_ddotpl2r; n = 2; break;
-      case Builtin::BI_ddotp4 : id = Intrinsic::_ddotp4; n = 2; break;
-      case Builtin::BI_dpack2 : id = Intrinsic::_dpack2; n = 2; break;
-      case Builtin::BI_dpackx2 : id = Intrinsic::_dpackx2; n = 2; break;
-      case Builtin::BI_dmv : id = Intrinsic::_dmv; n = 2; break;
-      case Builtin::BI_gmpy : id = Intrinsic::_gmpy; n = 2; break;
-      case Builtin::BI_mpy32ll : id = Intrinsic::_mpy32ll; n = 2; break;
-      case Builtin::BI_mpy32 : id = Intrinsic::_mpy32; n = 2; break;
-      case Builtin::BI_mpy32su : id = Intrinsic::_mpy32su; n = 2; break;
-      case Builtin::BI_mpy32us : id = Intrinsic::_mpy32us; n = 2; break;
-      case Builtin::BI_mpy32u : id = Intrinsic::_mpy32u; n = 2; break;
-      case Builtin::BI_mpy2ir : id = Intrinsic::_mpy2ir; n = 2; break;
-      case Builtin::BI_rpack2 : id = Intrinsic::_rpack2; n = 2; break;
-      case Builtin::BI_saddsub : id = Intrinsic::_saddsub; n = 2; break;
-      case Builtin::BI_saddsub2 : id = Intrinsic::_saddsub2; n = 2; break;
-      case Builtin::BI_shfl3 : id = Intrinsic::_shfl3; n = 2; break;
-      case Builtin::BI_smpy32 : id = Intrinsic::_smpy32; n = 2; break;
-      case Builtin::BI_ssub2 : id = Intrinsic::_ssub2; n = 2; break;
-      case Builtin::BI_xormpy : id = Intrinsic::_xormpy; n = 2; break;
-      case Builtin::BI_mem8_const: id = Intrinsic::_mem8_const; n = 1; break;
-      case Builtin::BI_memd8_const: id = Intrinsic::_memd8_const; n = 1; break;
-      case Builtin::BI_mem4_const: id = Intrinsic::_mem4_const; n = 1; break;
-      case Builtin::BI_mem2_const: id = Intrinsic::_mem2_const; n = 1; break;
-      case Builtin::BI_mem8: id = Intrinsic::_mem8; n = 1; break;
-      case Builtin::BI_memd8: id = Intrinsic::_memd8; n = 1; break;
-      case Builtin::BI_mem4: id = Intrinsic::_mem4; n = 1; break;
-      case Builtin::BI_mem2: id = Intrinsic::_mem2; n = 1; break;
-      case Builtin::BI_amem8_const: id = Intrinsic::_amem8_const; n = 1; break;
-      case Builtin::BI_amemd8_const: id = Intrinsic::_amemd8_const; n = 1;break;
-      case Builtin::BI_amem4_const: id = Intrinsic::_amem4_const; n = 1; break;
-      case Builtin::BI_amem2_const: id = Intrinsic::_amem2_const; n = 1; break;
-      case Builtin::BI_amem8: id = Intrinsic::_amem8; n = 1; break;
-      case Builtin::BI_amemd8: id = Intrinsic::_amemd8; n = 1; break;
-      case Builtin::BI_amem4: id = Intrinsic::_amem4; n = 1; break;
-      case Builtin::BI_amem2: id = Intrinsic::_amem2; n = 1; break;
-     }
-   if (n == 1)
-   {
-      Value *V = EmitScalarExpr(E->getArg(0));
-      return Builder.CreateCall(CGM.getIntrinsic(id), V);
-   }
-   else if (n == 2)
-   {
-      Value *V1 = EmitScalarExpr(E->getArg(0));
-      Value *V2 = EmitScalarExpr(E->getArg(1));
-      return Builder.CreateCall2(CGM.getIntrinsic(id), V1, V2);
-   }
-   else if (n == 3)
-   {
-      Value *V1 = EmitScalarExpr(E->getArg(0));
-      Value *V2 = EmitScalarExpr(E->getArg(1));
-      Value *V3 = EmitScalarExpr(E->getArg(2));
-      return Builder.CreateCall3(CGM.getIntrinsic(id), V1, V2, V3);
-   }
-
-  if (auto Hint = GetValueForARMHint(BuiltinID))
-    return Hint;
-
-  if (BuiltinID == ARM::BI__emit) {
-    bool IsThumb = getTarget().getTriple().getArch() == llvm::Triple::thumb;
-    llvm::FunctionType *FTy =
-        llvm::FunctionType::get(VoidTy, /*Variadic=*/false);
-
-    APSInt Value;
-    if (!E->getArg(0)->EvaluateAsInt(Value, CGM.getContext()))
-      llvm_unreachable("Sema will ensure that the parameter is constant");
-
-    uint64_t ZExtValue = Value.zextOrTrunc(IsThumb ? 16 : 32).getZExtValue();
-
-    llvm::InlineAsm *Emit =
-        IsThumb ? InlineAsm::get(FTy, ".inst.n 0x" + utohexstr(ZExtValue), "",
-                                 /*SideEffects=*/true)
-                : InlineAsm::get(FTy, ".inst 0x" + utohexstr(ZExtValue), "",
-                                 /*SideEffects=*/true);
-
-    return Builder.CreateCall(Emit);
-  }
-
   if (BuiltinID == ARM::BI__builtin_arm_dbg) {
     Value *Option = EmitScalarExpr(E->getArg(0));
     return Builder.CreateCall(CGM.getIntrinsic(Intrinsic::arm_dbg), Option);
@@ -6599,4 +6382,244 @@ Value *CodeGenFunction::EmitR600BuiltinExpr(unsigned BuiltinID,
    default:
     return nullptr;
   }
+
+Value *CodeGenFunction::EmitIntrinsicCall(Intrinsic::ID id, unsigned num_arg,
+                                          const CallExpr *E) {
+   assert(E->getNumArgs() == num_arg && "Wrong # args to Intrinsic");
+   if (num_arg == 1)
+   {
+      Value *V = EmitScalarExpr(E->getArg(0));
+      return Builder.CreateCall(CGM.getIntrinsic(id), V);
+   }
+   else if (num_arg == 2)
+   {
+      Value *V1 = EmitScalarExpr(E->getArg(0));
+      Value *V2 = EmitScalarExpr(E->getArg(1));
+      return Builder.CreateCall2(CGM.getIntrinsic(id), V1, V2);
+   }
+   else if (num_arg == 3)
+   {
+      Value *V1 = EmitScalarExpr(E->getArg(0));
+      Value *V2 = EmitScalarExpr(E->getArg(1));
+      Value *V3 = EmitScalarExpr(E->getArg(2));
+      return Builder.CreateCall3(CGM.getIntrinsic(id), V1, V2, V3);
+   }
+
+   return NULL;
+}
+
+Value *CodeGenFunction::EmitTIBuiltinExpr(unsigned BuiltinID,
+                                          const CallExpr *E) {
+   Intrinsic::ID id = Intrinsic::not_intrinsic;
+   unsigned      n  = 0;
+
+   switch (BuiltinID)
+   {
+      case TI::BI_assert:  id = Intrinsic::ti_assert; n = 2; break;
+      case TI::BI_nassert: id = Intrinsic::ti_nassert; n = 1; break;
+
+      case Builtin::BIabs   : id = Intrinsic::ti_abs; n = 1; break;
+      case Builtin::BIlabs  : id = Intrinsic::ti_labs; n = 1; break;
+      case Builtin::BIllabs : id = Intrinsic::ti_llabs; n = 1; break;
+      case Builtin::BIfabs  : id = Intrinsic::ti_fabs; n = 1; break;
+      case Builtin::BIfabsf : id = Intrinsic::ti_fabsf; n = 1; break;
+   }
+         
+   if (id == Intrinsic::not_intrinsic)  return NULL;
+
+   return EmitIntrinsicCall(id, n, E);
+}
+
+Value *CodeGenFunction::EmitC6000BuiltinExpr(unsigned BuiltinID,
+                                             const CallExpr *E) {
+   Value *BE = EmitTIBuiltinExpr(BuiltinID, E);
+   if (BE)  return BE;
+
+   Intrinsic::ID id = Intrinsic::not_intrinsic;
+   unsigned      n  = 0;
+
+   switch (BuiltinID)
+   {
+      case C6000::BI_extu :   id = Intrinsic::c6000_extu; n = 3; break;
+      case C6000::BI_ext :    id = Intrinsic::c6000_ext; n = 3; break;
+      case C6000::BI_set :    id = Intrinsic::c6000_set; n = 3; break;
+      case C6000::BI_clr :    id = Intrinsic::c6000_clr; n = 3; break;
+      case C6000::BI_extur :  id = Intrinsic::c6000_extur; n = 2; break;
+      case C6000::BI_extr : id = Intrinsic::c6000_extr; n = 2; break;
+      case C6000::BI_setr : id = Intrinsic::c6000_setr; n = 2; break;
+      case C6000::BI_clrr : id = Intrinsic::c6000_clrr; n = 2; break;
+      case C6000::BI_sadd : id = Intrinsic::c6000_sadd; n = 2; break;
+      case C6000::BI_ssub : id = Intrinsic::c6000_ssub; n = 2; break;
+      case C6000::BI_sshl : id = Intrinsic::c6000_sshl; n = 2; break;
+      case C6000::BI_add2 : id = Intrinsic::c6000_add2; n = 2; break;
+      case C6000::BI_sub2 : id = Intrinsic::c6000_sub2; n = 2; break;
+      case C6000::BI_subc : id = Intrinsic::c6000_subc; n = 2; break;
+      case C6000::BI_lmbd : id = Intrinsic::c6000_lmbd; n = 2; break;
+      case C6000::BI_abs : id = Intrinsic::c6000_abs; n = 1; break;
+      case C6000::BI_labs : id = Intrinsic::c6000_labs; n = 1; break;
+      case C6000::BI_norm : id = Intrinsic::c6000_norm; n = 1; break;
+      case C6000::BI_smpy : id = Intrinsic::c6000_smpy; n = 2; break;
+      case C6000::BI_smpyhl : id = Intrinsic::c6000_smpyhl; n = 2; break;
+      case C6000::BI_smpylh : id = Intrinsic::c6000_smpylh; n = 2; break;
+      case C6000::BI_smpyh : id = Intrinsic::c6000_smpyh; n = 2; break;
+      case C6000::BI_mpy : id = Intrinsic::c6000_mpy; n = 2; break;
+      case C6000::BI_mpyus : id = Intrinsic::c6000_mpyus; n = 2; break;
+      case C6000::BI_mpysu : id = Intrinsic::c6000_mpysu; n = 2; break;
+      case C6000::BI_mpyu : id = Intrinsic::c6000_mpyu; n = 2; break;
+      case C6000::BI_mpyhl : id = Intrinsic::c6000_mpyhl; n = 2; break;
+      case C6000::BI_mpyhuls : id = Intrinsic::c6000_mpyhuls; n = 2; break;
+      case C6000::BI_mpyhslu : id = Intrinsic::c6000_mpyhslu; n = 2; break;
+      case C6000::BI_mpyhlu : id = Intrinsic::c6000_mpyhlu; n = 2; break;
+      case C6000::BI_mpylh : id = Intrinsic::c6000_mpylh; n = 2; break;
+      case C6000::BI_mpyluhs : id = Intrinsic::c6000_mpyluhs; n = 2; break;
+      case C6000::BI_mpylshu : id = Intrinsic::c6000_mpylshu; n = 2; break;
+      case C6000::BI_mpylhu : id = Intrinsic::c6000_mpylhu; n = 2; break;
+      case C6000::BI_mpyh : id = Intrinsic::c6000_mpyh; n = 2; break;
+      case C6000::BI_mpyhus : id = Intrinsic::c6000_mpyhus; n = 2; break;
+      case C6000::BI_mpyhsu : id = Intrinsic::c6000_mpyhsu; n = 2; break;
+      case C6000::BI_mpyhu : id = Intrinsic::c6000_mpyhu; n = 2; break;
+      case C6000::BI_lsadd : id = Intrinsic::c6000_lsadd; n = 2; break;
+      case C6000::BI_lssub : id = Intrinsic::c6000_lssub; n = 2; break;
+      case C6000::BI_sat : id = Intrinsic::c6000_sat; n = 1; break;
+      case C6000::BI_lnorm : id = Intrinsic::c6000_lnorm; n = 1; break;
+      case C6000::BI_fabs : id = Intrinsic::c6000_fabs; n = 1; break;
+      case C6000::BI_fabsf : id = Intrinsic::c6000_fabsf; n = 1; break;
+      case C6000::BI_mpyid : id = Intrinsic::c6000_mpyid; n = 2; break;
+      case C6000::BI_mpyidll : id = Intrinsic::c6000_mpyidll; n = 2; break;
+      case C6000::BI_spint : id = Intrinsic::c6000_spint; n = 1; break;
+      case C6000::BI_dpint : id = Intrinsic::c6000_dpint; n = 1; break;
+      case C6000::BI_rcpsp : id = Intrinsic::c6000_rcpsp; n = 1; break;
+      case C6000::BI_rcpdp : id = Intrinsic::c6000_rcpdp; n = 1; break;
+      case C6000::BI_rsqrsp : id = Intrinsic::c6000_rsqrsp; n = 1; break;
+      case C6000::BI_rsqrdp : id = Intrinsic::c6000_rsqrdp; n = 1; break;
+      case C6000::BI_hi : id = Intrinsic::c6000_hi; n = 1; break;
+      case C6000::BI_hill : id = Intrinsic::c6000_hill; n = 1; break;
+      case C6000::BI_lo : id = Intrinsic::c6000_lo; n = 1; break;
+      case C6000::BI_loll : id = Intrinsic::c6000_loll; n = 1; break;
+      case C6000::BI_itod : id = Intrinsic::c6000_itod; n = 2; break;
+      case C6000::BI_itoll : id = Intrinsic::c6000_itoll; n = 2; break;
+      case C6000::BI_itof : id = Intrinsic::c6000_itof; n = 1; break;
+      case C6000::BI_ftoi : id = Intrinsic::c6000_ftoi; n = 1; break;
+      case C6000::BI_add4 : id = Intrinsic::c6000_add4; n = 2; break;
+      case C6000::BI_avg2 : id = Intrinsic::c6000_avg2; n = 2; break;
+      case C6000::BI_avgu4 : id = Intrinsic::c6000_avgu4; n = 2; break;
+      case C6000::BI_cmpeq2 : id = Intrinsic::c6000_cmpeq2; n = 2; break;
+      case C6000::BI_cmpeq4 : id = Intrinsic::c6000_cmpeq4; n = 2; break;
+      case C6000::BI_cmpgt2 : id = Intrinsic::c6000_cmpgt2; n = 2; break;
+      case C6000::BI_cmpgtu4 : id = Intrinsic::c6000_cmpgtu4; n = 2; break;
+      case C6000::BI_dotp2 : id = Intrinsic::c6000_dotp2; n = 2; break;
+      case C6000::BI_dotpn2 : id = Intrinsic::c6000_dotpn2; n = 2; break;
+      case C6000::BI_dotpnrsu2 : id = Intrinsic::c6000_dotpnrsu2; n = 2; break;
+      case C6000::BI_dotprsu2 : id = Intrinsic::c6000_dotprsu2; n = 2; break;
+      case C6000::BI_dotpsu4 : id = Intrinsic::c6000_dotpsu4; n = 2; break;
+      case C6000::BI_dotpu4 : id = Intrinsic::c6000_dotpu4; n = 2; break;
+      case C6000::BI_gmpy4 : id = Intrinsic::c6000_gmpy4; n = 2; break;
+      case C6000::BI_ldotp2 : id = Intrinsic::c6000_ldotp2; n = 2; break;
+      case C6000::BI_max2 : id = Intrinsic::c6000_max2; n = 2; break;
+      case C6000::BI_maxu4 : id = Intrinsic::c6000_maxu4; n = 2; break;
+      case C6000::BI_min2 : id = Intrinsic::c6000_min2; n = 2; break;
+      case C6000::BI_minu4 : id = Intrinsic::c6000_minu4; n = 2; break;
+      case C6000::BI_mpy2 : id = Intrinsic::c6000_mpy2; n = 2; break;
+      case C6000::BI_mpy2ll : id = Intrinsic::c6000_mpy2ll; n = 2; break;
+      case C6000::BI_mpyhi : id = Intrinsic::c6000_mpyhi; n = 2; break;
+      case C6000::BI_mpyhill : id = Intrinsic::c6000_mpyhill; n = 2; break;
+      case C6000::BI_mpyhir : id = Intrinsic::c6000_mpyhir; n = 2; break;
+      case C6000::BI_mpyli : id = Intrinsic::c6000_mpyli; n = 2; break;
+      case C6000::BI_mpylill : id = Intrinsic::c6000_mpylill; n = 2; break;
+      case C6000::BI_mpylir : id = Intrinsic::c6000_mpylir; n = 2; break;
+      case C6000::BI_mpysu4 : id = Intrinsic::c6000_mpysu4; n = 2; break;
+      case C6000::BI_mpysu4ll : id = Intrinsic::c6000_mpysu4ll; n = 2; break;
+      case C6000::BI_mpyu4 : id = Intrinsic::c6000_mpyu4; n = 2; break;
+      case C6000::BI_mpyu4ll : id = Intrinsic::c6000_mpyu4ll; n = 2; break;
+      case C6000::BI_pack2 : id = Intrinsic::c6000_pack2; n = 2; break;
+      case C6000::BI_packh2 : id = Intrinsic::c6000_packh2; n = 2; break;
+      case C6000::BI_packh4 : id = Intrinsic::c6000_packh4; n = 2; break;
+      case C6000::BI_packhl2 : id = Intrinsic::c6000_packhl2; n = 2; break;
+      case C6000::BI_packl4 : id = Intrinsic::c6000_packl4; n = 2; break;
+      case C6000::BI_packlh2 : id = Intrinsic::c6000_packlh2; n = 2; break;
+      case C6000::BI_rotl : id = Intrinsic::c6000_rotl; n = 2; break;
+      case C6000::BI_sadd2 : id = Intrinsic::c6000_sadd2; n = 2; break;
+      case C6000::BI_saddu4 : id = Intrinsic::c6000_saddu4; n = 2; break;
+      case C6000::BI_saddus2 : id = Intrinsic::c6000_saddus2; n = 2; break;
+      case C6000::BI_shlmb : id = Intrinsic::c6000_shlmb; n = 2; break;
+      case C6000::BI_shr2 : id = Intrinsic::c6000_shr2; n = 2; break;
+      case C6000::BI_shrmb : id = Intrinsic::c6000_shrmb; n = 2; break;
+      case C6000::BI_shru2 : id = Intrinsic::c6000_shru2; n = 2; break;
+      case C6000::BI_smpy2 : id = Intrinsic::c6000_smpy2; n = 2; break;
+      case C6000::BI_smpy2ll : id = Intrinsic::c6000_smpy2ll; n = 2; break;
+      case C6000::BI_spack2 : id = Intrinsic::c6000_spack2; n = 2; break;
+      case C6000::BI_spacku4 : id = Intrinsic::c6000_spacku4; n = 2; break;
+      case C6000::BI_sshvl : id = Intrinsic::c6000_sshvl; n = 2; break;
+      case C6000::BI_sshvr : id = Intrinsic::c6000_sshvr; n = 2; break;
+      case C6000::BI_sub4 : id = Intrinsic::c6000_sub4; n = 2; break;
+      case C6000::BI_subabs4 : id = Intrinsic::c6000_subabs4; n = 2; break;
+      case C6000::BI_abs2 : id = Intrinsic::c6000_abs2; n = 1; break;
+      case C6000::BI_bitc4 : id = Intrinsic::c6000_bitc4; n = 1; break;
+      case C6000::BI_bitr : id = Intrinsic::c6000_bitr; n = 1; break;
+      case C6000::BI_deal : id = Intrinsic::c6000_deal; n = 1; break;
+      case C6000::BI_mvd : id = Intrinsic::c6000_mvd; n = 1; break;
+      case C6000::BI_shfl : id = Intrinsic::c6000_shfl; n = 1; break;
+      case C6000::BI_swap4 : id = Intrinsic::c6000_swap4; n = 1; break;
+      case C6000::BI_unpkhu4 : id = Intrinsic::c6000_unpkhu4; n = 1; break;
+      case C6000::BI_unpklu4 : id = Intrinsic::c6000_unpklu4; n = 1; break;
+      case C6000::BI_xpnd2 : id = Intrinsic::c6000_xpnd2; n = 1; break;
+      case C6000::BI_xpnd4 : id = Intrinsic::c6000_xpnd4; n = 1; break;
+      case C6000::BI_addsub : id = Intrinsic::c6000_addsub; n = 2; break;
+      case C6000::BI_addsub2 : id = Intrinsic::c6000_addsub2; n = 2; break;
+      case C6000::BI_cmpy : id = Intrinsic::c6000_cmpy; n = 2; break;
+      case C6000::BI_cmpyr : id = Intrinsic::c6000_cmpyr; n = 2; break;
+      case C6000::BI_cmpyr1 : id = Intrinsic::c6000_cmpyr1; n = 2; break;
+      case C6000::BI_ddotph2 : id = Intrinsic::c6000_ddotph2; n = 2; break;
+      case C6000::BI_ddotph2r : id = Intrinsic::c6000_ddotph2r; n = 2; break;
+      case C6000::BI_ddotpl2 : id = Intrinsic::c6000_ddotpl2; n = 2; break;
+      case C6000::BI_ddotpl2r : id = Intrinsic::c6000_ddotpl2r; n = 2; break;
+      case C6000::BI_ddotp4 : id = Intrinsic::c6000_ddotp4; n = 2; break;
+      case C6000::BI_dpack2 : id = Intrinsic::c6000_dpack2; n = 2; break;
+      case C6000::BI_dpackx2 : id = Intrinsic::c6000_dpackx2; n = 2; break;
+      case C6000::BI_dmv : id = Intrinsic::c6000_dmv; n = 2; break;
+      case C6000::BI_gmpy : id = Intrinsic::c6000_gmpy; n = 2; break;
+      case C6000::BI_mpy32ll : id = Intrinsic::c6000_mpy32ll; n = 2; break;
+      case C6000::BI_mpy32 : id = Intrinsic::c6000_mpy32; n = 2; break;
+      case C6000::BI_mpy32su : id = Intrinsic::c6000_mpy32su; n = 2; break;
+      case C6000::BI_mpy32us : id = Intrinsic::c6000_mpy32us; n = 2; break;
+      case C6000::BI_mpy32u : id = Intrinsic::c6000_mpy32u; n = 2; break;
+      case C6000::BI_mpy2ir : id = Intrinsic::c6000_mpy2ir; n = 2; break;
+      case C6000::BI_rpack2 : id = Intrinsic::c6000_rpack2; n = 2; break;
+      case C6000::BI_saddsub : id = Intrinsic::c6000_saddsub; n = 2; break;
+      case C6000::BI_saddsub2 : id = Intrinsic::c6000_saddsub2; n = 2; break;
+      case C6000::BI_shfl3 : id = Intrinsic::c6000_shfl3; n = 2; break;
+      case C6000::BI_smpy32 : id = Intrinsic::c6000_smpy32; n = 2; break;
+      case C6000::BI_ssub2 : id = Intrinsic::c6000_ssub2; n = 2; break;
+      case C6000::BI_xormpy : id = Intrinsic::c6000_xormpy; n = 2; break;
+      case C6000::BI_mem8_const: id = Intrinsic::c6000_mem8_const; n = 1; break;
+      case C6000::BI_memd8_const: id = Intrinsic::c6000_memd8_const; n = 1;break;
+      case C6000::BI_mem4_const: id = Intrinsic::c6000_mem4_const; n = 1; break;
+      case C6000::BI_mem2_const: id = Intrinsic::c6000_mem2_const; n = 1; break;
+      case C6000::BI_mem8: id = Intrinsic::c6000_mem8; n = 1; break;
+      case C6000::BI_memd8: id = Intrinsic::c6000_memd8; n = 1; break;
+      case C6000::BI_mem4: id = Intrinsic::c6000_mem4; n = 1; break;
+      case C6000::BI_mem2: id = Intrinsic::c6000_mem2; n = 1; break;
+      case C6000::BI_amem8_const: id = Intrinsic::c6000_amem8_const; n = 1;break;
+      case C6000::BI_amemd8_const: id = Intrinsic::c6000_amemd8_const; n=1;break;
+      case C6000::BI_amem4_const: id = Intrinsic::c6000_amem4_const; n = 1;break;
+      case C6000::BI_amem2_const: id = Intrinsic::c6000_amem2_const; n = 1;break;
+      case C6000::BI_amem8: id = Intrinsic::c6000_amem8; n = 1; break;
+      case C6000::BI_amemd8: id = Intrinsic::c6000_amemd8; n = 1; break;
+      case C6000::BI_amem4: id = Intrinsic::c6000_amem4; n = 1; break;
+      case C6000::BI_amem2: id = Intrinsic::c6000_amem2; n = 1; break;
+   }
+
+   if (id == Intrinsic::not_intrinsic)  return NULL;
+
+   return EmitIntrinsicCall(id, n, E);
+}
+
+Value *CodeGenFunction::EmitC7000BuiltinExpr(unsigned BuiltinID,
+                                             const CallExpr *E) {
+   return EmitC6000BuiltinExpr(BuiltinID, E);
+}
+
+Value *CodeGenFunction::EmitMSP430BuiltinExpr(unsigned BuiltinID,
+                                             const CallExpr *E) {
+   return 0;
 }

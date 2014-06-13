@@ -175,6 +175,49 @@ namespace clang {
   };
   }
 
+  /// \brief TI generic builtins
+  namespace TI {
+    enum {
+        LastTIBuiltin = clang::Builtin::FirstTSBuiltin-1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/BuiltinsTI.def"
+        LastTSBuiltin
+    };
+  }
+
+  /// \brief TI C6000 builtins
+  namespace C6000 {
+    enum {
+        LastTIBuiltin = clang::Builtin::FirstTSBuiltin-1,
+        LastTXNBuiltin = clang::TI::LastTSBuiltin-1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/BuiltinsC6000.def"
+        LastTSBuiltin
+    };
+  }
+
+  /// \brief TI C7000 builtins
+  namespace C7000 {
+    enum {
+        LastTIBuiltin = clang::Builtin::FirstTSBuiltin-1,
+        LastTXNBuiltin = clang::TI::LastTSBuiltin-1,
+        LastC6000Builtin = clang::C6000::LastTSBuiltin-1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/BuiltinsC7000.def"
+        LastTSBuiltin
+    };
+  }
+
+  /// \brief TI MSP430 builtins
+  namespace MSP430 {
+    enum {
+        LastTIBuiltin = clang::Builtin::FirstTSBuiltin-1,
+        LastTXNBuiltin = clang::TI::LastTSBuiltin-1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/BuiltinsMSP430.def"
+        LastTSBuiltin
+    };
+  }
 } // end namespace clang.
 
 #endif

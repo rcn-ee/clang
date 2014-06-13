@@ -5458,6 +5458,7 @@ validateAsmConstraint(const char *&Name,
 
 namespace {
   class MSP430TargetInfo : public TargetInfo {
+    static const Builtin::Info BuiltinInfo[];
     static const char * const GCCRegNames[];
   public:
     MSP430TargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
@@ -5473,20 +5474,24 @@ namespace {
       IntPtrType = SignedInt;
       PtrDiffType = SignedInt;
       SigAtomicType = SignedLong;
-      DescriptionString = "e-m:e-p:16:16-i32:16:32-a:16-n8:16";
+      DescriptionString = "e-m:e-p:16:16-i32:16-i64:16-f32:16-f64:16-v32:16-v64:16-v128:16-n8:16";
     }
     void getTargetDefines(const LangOptions &Opts,
                           MacroBuilder &Builder) const override {
-      Builder.defineMacro("MSP430");
       Builder.defineMacro("__MSP430__");
+      Builder.defineMacro("__SIZE_T_TYPE__", "unsigned");
+      Builder.defineMacro("__PTRDIFF_T_TYPE__", "int");
+      Builder.defineMacro("__WCHAR_T_TYPE__", "unsigned int");
+      Builder.defineMacro("__TI_EABI__", "1");
       // FIXME: defines for different 'flavours' of MCU
     }
+
     void getTargetBuiltins(const Builtin::Info *&Records,
                            unsigned &NumRecords) const override {
-      // FIXME: Implement.
-      Records = nullptr;
-      NumRecords = 0;
+       Records = BuiltinInfo;
+       NumRecords = clang::MSP430::LastTSBuiltin-Builtin::FirstTSBuiltin;
     }
+
     bool hasFeature(StringRef Feature) const override {
       return Feature == "msp430";
     }
@@ -5518,7 +5523,7 @@ namespace {
     BuiltinVaListKind getBuiltinVaListKind() const override {
       // FIXME: implement
       return TargetInfo::CharPtrBuiltinVaList;
-   }
+    }
   };
 
   const char * const MSP430TargetInfo::GCCRegNames[] = {
@@ -5531,6 +5536,275 @@ namespace {
     Names = GCCRegNames;
     NumNames = llvm::array_lengthof(GCCRegNames);
   }
+
+  const Builtin::Info MSP430TargetInfo::BuiltinInfo[] = {
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsTI.def"
+
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsMSP430.def"
+  };
+}
+
+namespace {
+  class C2000TargetInfo : public TargetInfo {
+    static const char * const GCCRegNames[];
+  public:
+    C2000TargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+      BigEndian = false;
+      TLSSupported = false;
+      BoolWidth = 16; BoolAlign = 16;
+      IntWidth = 16; IntAlign = 16;
+      LongWidth = 32; LongAlign = 32;
+      LongLongWidth = 64; LongLongAlign = 32;
+      DoubleWidth = 32; DoubleAlign = 32;
+      PointerWidth = 22; PointerAlign = 32;
+      SuitableAlign = 16;
+      SizeType = UnsignedLong;
+      IntMaxType = SignedLongLong;
+      UIntMaxType = UnsignedLongLong;
+      IntPtrType = SignedLong;
+      PtrDiffType = SignedLong;
+      SigAtomicType = SignedLong;
+      DescriptionString = "e-m:e-p:32:32-i64:32-n16";
+    }
+    void getTargetDefines(const LangOptions &Opts,
+                          MacroBuilder &Builder) const override {
+      Builder.defineMacro("__TMS320C2000__");
+      Builder.defineMacro("_TMS320C2000");
+      Builder.defineMacro("__TMS320C28XX__");
+      Builder.defineMacro("_TMS320C28XX");
+      Builder.defineMacro("__TMS320C28X__");
+      Builder.defineMacro("_TMS320C28X");
+      Builder.defineMacro("__SIZE_T_TYPE__", "unsigned long");
+      Builder.defineMacro("__PTRDIFF_T_TYPE__", "long");
+      Builder.defineMacro("__WCHAR_T_TYPE__", "unsigned int");
+    }
+
+    void getTargetBuiltins(const Builtin::Info *&Records,
+                           unsigned &NumRecords) const override {
+      // FIXME: Implement.
+      Records = 0;
+      NumRecords = 0;
+    }
+    bool hasFeature(StringRef Feature) const override {
+      return Feature == "c2000";
+    }
+    void getGCCRegNames(const char * const *&Names,
+                        unsigned &NumNames) const override;
+    void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                          unsigned &NumAliases) const override {
+      // No aliases.
+      Aliases = 0;
+      NumAliases = 0;
+    }
+    bool validateAsmConstraint(const char *&Name,
+                               TargetInfo::ConstraintInfo &info) const override {
+      // No target constraints for now.
+      return false;
+    }
+    const char *getClobbers() const override {
+      // FIXME: Is this really right?
+      return "";
+    }
+    BuiltinVaListKind getBuiltinVaListKind() const override {
+      // FIXME: implement
+      return TargetInfo::CharPtrBuiltinVaList;
+   }
+  };
+
+  const char * const C2000TargetInfo::GCCRegNames[] = {
+    "al", "ah", "dp", "ph", "pl", "sp", "t", "tl",
+    "xar0", "xar1", "xar2", "xar3", "xar4", "xar5", "xar6", "xar7",
+
+    // FPU registers
+    "r0h", "r1h", "r2h", "r3h", "r4h", "r5h", "r6h", "r7h"
+  };
+
+  void C2000TargetInfo::getGCCRegNames(const char * const *&Names,
+                                       unsigned &NumNames) const {
+     Names = GCCRegNames;
+     NumNames = llvm::array_lengthof(GCCRegNames);
+  }
+}
+
+namespace {
+  class C6000TargetInfo : public TargetInfo {
+    static const Builtin::Info BuiltinInfo[];
+    static const char * const GCCRegNames[];
+  public:
+    C6000TargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+      BigEndian = false;
+      TLSSupported = false;
+      LargeArrayAlign = 128;
+      DescriptionString = "e-m:e-p:32:32-i64:64-v128:64:128-n32-S64";
+    }
+    void getTargetDefines(const LangOptions &Opts,
+                          MacroBuilder &Builder) const override {
+      Builder.defineMacro("_TMS320C6X");
+      Builder.defineMacro("__TMS320C6X__");
+      Builder.defineMacro("_LITTLE_ENDIAN");
+      Builder.defineMacro("__TI_EABI__");
+      Builder.defineMacro("__TI_32BIT_LONG__");
+      Builder.defineMacro("__SIZE_T_TYPE__", "unsigned");
+      Builder.defineMacro("__PTRDIFF_T_TYPE__", "int");
+      Builder.defineMacro("__WCHAR_T_TYPE__", "unsigned short");
+    }
+
+    void getTargetBuiltins(const Builtin::Info *&Records,
+                           unsigned &NumRecords) const override {
+       Records = BuiltinInfo;
+       NumRecords = clang::C6000::LastTSBuiltin-Builtin::FirstTSBuiltin;
+    }
+
+    bool hasFeature(StringRef Feature) const override {
+      return Feature == "c6000";
+    }
+    void getGCCRegNames(const char * const *&Names,
+                        unsigned &NumNames) const override;
+    void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                          unsigned &NumAliases) const override {
+      // No aliases.
+      Aliases = 0;
+      NumAliases = 0;
+    }
+    bool validateAsmConstraint(const char *&Name,
+                               TargetInfo::ConstraintInfo &info) const override {
+      // No target constraints for now.
+      return false;
+    }
+    const char *getClobbers() const override {
+      // FIXME: Is this really right?
+      return "";
+    }
+    BuiltinVaListKind getBuiltinVaListKind() const override {
+      // FIXME: implement
+      return TargetInfo::CharPtrBuiltinVaList;
+    }
+  };
+
+  const char * const C6000TargetInfo::GCCRegNames[] = {
+    "A0",  "A1",  "A2",  "A3",  "A4",  "A5",  "A6",  "A7",  "A8",  "A9",
+    "A10", "A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19",
+    "A20", "A21", "A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29",
+    "A30", "A31",
+    "B0",  "B1",  "B2",  "B3",  "B4",  "B5",  "B6",  "B7",  "B8",  "B9",
+    "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18", "B19",
+    "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29",
+    "B30", "B31"
+  };
+
+  void C6000TargetInfo::getGCCRegNames(const char * const *&Names,
+                                        unsigned &NumNames) const {
+    Names = GCCRegNames;
+    NumNames = llvm::array_lengthof(GCCRegNames);
+  }
+
+  const Builtin::Info C6000TargetInfo::BuiltinInfo[] = {
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsTI.def"
+
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsC6000.def"
+  };
+}
+
+namespace {
+  class C7000TargetInfo : public TargetInfo {
+    static const Builtin::Info BuiltinInfo[];
+    static const char * const GCCRegNames[];
+  public:
+    C7000TargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+      BigEndian = false;
+      TLSSupported = false;
+      LargeArrayAlign = 128;
+      DescriptionString = "e-m:e-p:32:32-i64:64-v128:64:128-n32-S64";
+    }
+    void getTargetDefines(const LangOptions &Opts,
+                          MacroBuilder &Builder) const override {
+      Builder.defineMacro("_TMS320C7X");
+      Builder.defineMacro("__TMS320C7X__");
+      Builder.defineMacro("_LITTLE_ENDIAN");
+      Builder.defineMacro("__TI_EABI__");
+      Builder.defineMacro("__TI_32BIT_LONG__");
+      Builder.defineMacro("__SIZE_T_TYPE__", "unsigned");
+      Builder.defineMacro("__PTRDIFF_T_TYPE__", "int");
+      Builder.defineMacro("__WCHAR_T_TYPE__", "unsigned short");
+    }
+
+    void getTargetBuiltins(const Builtin::Info *&Records,
+                           unsigned &NumRecords) const override {
+       Records = BuiltinInfo;
+       NumRecords = clang::C7000::LastTSBuiltin-Builtin::FirstTSBuiltin;
+    }
+
+    bool hasFeature(StringRef Feature) const override {
+      return Feature == "c6000";
+    }
+    void getGCCRegNames(const char * const *&Names,
+                        unsigned &NumNames) const override;
+    void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                          unsigned &NumAliases) const override {
+      // No aliases.
+      Aliases = 0;
+      NumAliases = 0;
+    }
+    bool validateAsmConstraint(const char *&Name,
+                               TargetInfo::ConstraintInfo &info) const override {
+      // No target constraints for now.
+      return false;
+    }
+    const char *getClobbers() const override {
+      // FIXME: Is this really right?
+      return "";
+    }
+    BuiltinVaListKind getBuiltinVaListKind() const override {
+      // FIXME: implement
+      return TargetInfo::CharPtrBuiltinVaList;
+    }
+  };
+
+  const char * const C7000TargetInfo::GCCRegNames[] = {
+    "A0",  "A1",  "A2",  "A3",  "A4",  "A5",  "A6",  "A7",  "A8",  "A9",
+    "A10", "A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19",
+    "A20", "A21", "A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29",
+    "A30", "A31",
+    "B0",  "B1",  "B2",  "B3",  "B4",  "B5",  "B6",  "B7",  "B8",  "B9",
+    "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18", "B19",
+    "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29",
+    "B30", "B31"
+  };
+
+  void C7000TargetInfo::getGCCRegNames(const char * const *&Names,
+                                        unsigned &NumNames) const {
+    Names = GCCRegNames;
+    NumNames = llvm::array_lengthof(GCCRegNames);
+  }
+
+  const Builtin::Info C7000TargetInfo::BuiltinInfo[] = {
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsTI.def"
+
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsC6000.def"
+
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsC7000.def"
+  };
 }
 
 namespace {
@@ -6564,6 +6838,15 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
 
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple);
+
+  case llvm::Triple::c2000:
+    return new C2000TargetInfo(Triple);
+
+  case llvm::Triple::c6000:
+    return new C6000TargetInfo(Triple);
+
+  case llvm::Triple::c7000:
+    return new C7000TargetInfo(Triple);
 
   case llvm::Triple::mips:
     switch (os) {
