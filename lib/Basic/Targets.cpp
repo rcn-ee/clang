@@ -5642,6 +5642,7 @@ namespace {
       TLSSupported = false;
       LargeArrayAlign = 128;
       DescriptionString = "e-m:e-p:32:32-i64:64-v128:64:128-n32-S64";
+      WCharType = UnsignedShort;
     }
     void getTargetDefines(const LangOptions &Opts,
                           MacroBuilder &Builder) const override {
