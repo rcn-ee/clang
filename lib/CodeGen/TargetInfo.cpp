@@ -426,6 +426,115 @@ ABIArgInfo DefaultABIInfo::classifyReturnType(QualType RetTy) const {
 }
 
 //===----------------------------------------------------------------------===//
+// C6000 bitcode ABI Implementation
+//===----------------------------------------------------------------------===//
+class C6000ABIInfo : public ABIInfo {
+public:
+  C6000ABIInfo(CodeGen::CodeGenTypes &CGT) : ABIInfo(CGT) {}
+
+  ABIArgInfo classifyReturnType(QualType RetTy) const;
+  ABIArgInfo classifyArgumentType(QualType RetTy) const;
+
+  void computeInfo(CGFunctionInfo &FI) const override {
+    FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
+    for (auto &I : FI.arguments())
+      I.info = classifyArgumentType(I.type);
+  }
+
+  llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
+                         CodeGenFunction &CGF) const override;
+};
+
+class C6000TargetCodeGenInfo : public TargetCodeGenInfo {
+public:
+  C6000TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT)
+    : TargetCodeGenInfo(new C6000ABIInfo(CGT)) {}
+};
+
+llvm::Value *C6000ABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
+                                       CodeGenFunction &CGF) const {
+  return 0;
+}
+
+ABIArgInfo C6000ABIInfo::classifyArgumentType(QualType Ty) const {
+#if 0
+  /***************************************************************************/
+  /* XXX C6000 ABI XXX                                                       */
+  /*   This section represents function passing consistent with the C6000    */
+  /*   ABI, but will require changes in other places within the LLVM to      */
+  /*   ICODE translator.  This section has been left for reference and is    */
+  /*   NOT guaranteed to work.                                               */
+  /***************************************************************************/
+  uint64_t size = getContext().getTypeSize(Ty);
+  if (isAggregateTypeForABI(Ty)) { /* is_class_struct_union_type(t) */
+    /* assume not is_struct_vector(t) */
+    if (size > 64)
+        return ABIArgInfo::getIndirect(0, /*ByVal=*/true);
+    else
+        return ABIArgInfo::getDirect();
+  }
+
+  if (Ty->isVectorType())
+  {
+    if (size > 128)
+        return ABIArgInfo::getIndirect(0, /*ByVal=*/true);
+    else
+        return ABIArgInfo::getDirect();
+  }
+
+  // Treat an enum type as its underlying type.
+  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+    Ty = EnumTy->getDecl()->getIntegerType();
+
+  return (Ty->isPromotableIntegerType() ?
+          ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
+#else
+  /***************************************************************************/
+  /* XXX DEFAULT ABI XXX                                                     */
+  /*   This section matches the DefaultABI's behavior and should ultimately  */
+  /*   be turned off.                                                        */
+  /***************************************************************************/
+  if (isAggregateTypeForABI(Ty)) {
+    // Records with non-trivial destructors/constructors should not be passed
+    // by value.
+    if (isRecordReturnIndirect(Ty, getCXXABI()))
+      return ABIArgInfo::getIndirect(0, /*ByVal=*/false);
+
+    return ABIArgInfo::getIndirect(0);
+  }
+
+  // Treat an enum type as its underlying type.
+  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+    Ty = EnumTy->getDecl()->getIntegerType();
+
+  return (Ty->isPromotableIntegerType() ?
+          ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
+#endif
+}
+
+ABIArgInfo C6000ABIInfo::classifyReturnType(QualType RetTy) const {
+  if (RetTy->isVoidType())
+    return ABIArgInfo::getIgnore();
+
+  // Given: struct ret foo(arg1, ...),
+  // Returning aggregates indirectly results in generating:
+  //   void foo(ret*, arg1, ...)
+  // Where as returning aggregates directly results in generating:
+  //   ret foo(arg1, ...)
+  // For consistency with the C6000 ABI and the LLVM to ICODE translator,
+  // return aggregates directly.
+  if (isAggregateTypeForABI(RetTy))
+    return ABIArgInfo::getDirect();
+
+  // Treat an enum type as its underlying type.
+  if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
+    RetTy = EnumTy->getDecl()->getIntegerType();
+
+  return (RetTy->isPromotableIntegerType() ?
+          ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
+}
+
+//===----------------------------------------------------------------------===//
 // le32/PNaCl bitcode ABI Implementation
 //
 // This is a simplified version of the x86_32 ABI.  Arguments and return values
@@ -7077,6 +7186,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
   switch (Triple.getArch()) {
   default:
     return *(TheTargetCodeGenInfo = new DefaultTargetCodeGenInfo(Types));
+  
+  case llvm::Triple::c6000:
+    return *(TheTargetCodeGenInfo = new C6000TargetCodeGenInfo(Types));
 
   case llvm::Triple::le32:
     return *(TheTargetCodeGenInfo = new PNaClTargetCodeGenInfo(Types));
