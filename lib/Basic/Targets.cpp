@@ -5566,7 +5566,6 @@ namespace {
       SuitableAlign = 16;
       SizeType = UnsignedLong;
       IntMaxType = SignedLongLong;
-      UIntMaxType = UnsignedLongLong;
       IntPtrType = SignedLong;
       PtrDiffType = SignedLong;
       SigAtomicType = SignedLong;

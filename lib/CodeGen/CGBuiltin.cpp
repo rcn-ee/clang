@@ -6382,6 +6382,7 @@ Value *CodeGenFunction::EmitR600BuiltinExpr(unsigned BuiltinID,
    default:
     return nullptr;
   }
+}
 
 Value *CodeGenFunction::EmitIntrinsicCall(Intrinsic::ID id, unsigned num_arg,
                                           const CallExpr *E) {
@@ -6623,3 +6624,4 @@ Value *CodeGenFunction::EmitMSP430BuiltinExpr(unsigned BuiltinID,
                                              const CallExpr *E) {
    return 0;
 }
+

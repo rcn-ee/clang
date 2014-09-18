@@ -457,29 +457,22 @@ llvm::Value *C6000ABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
 }
 
 ABIArgInfo C6000ABIInfo::classifyArgumentType(QualType Ty) const {
-#if 0
-  /***************************************************************************/
-  /* XXX C6000 ABI XXX                                                       */
-  /*   This section represents function passing consistent with the C6000    */
-  /*   ABI, but will require changes in other places within the LLVM to      */
-  /*   ICODE translator.  This section has been left for reference and is    */
-  /*   NOT guaranteed to work.                                               */
-  /***************************************************************************/
   uint64_t size = getContext().getTypeSize(Ty);
-  if (isAggregateTypeForABI(Ty)) { /* is_class_struct_union_type(t) */
-    /* assume not is_struct_vector(t) */
-    if (size > 64)
-        return ABIArgInfo::getIndirect(0, /*ByVal=*/true);
-    else
-        return ABIArgInfo::getDirect();
-  }
 
-  if (Ty->isVectorType())
+  if ((isAggregateTypeForABI(Ty) && size > 64)
+      || (Ty->isVectorType() && size > 128)) {
+
+    return ABIArgInfo::getIndirect(0, /*ByVal=*/true);
+  }
+  else
   {
-    if (size > 128)
-        return ABIArgInfo::getIndirect(0, /*ByVal=*/true);
-    else
-        return ABIArgInfo::getDirect();
+    // Pass the argument directly on the stack and do not allow the aggregate
+    // to be split into individual members.
+    return ABIArgInfo::getDirect(
+          /* Type           = */ (llvm::Type *) nullptr,
+          /* Offset         = */ 0u,
+          /* Padding        = */ (llvm::Type *) nullptr, 
+          /* CanBeFlattened = */ false);
   }
 
   // Treat an enum type as its underlying type.
@@ -488,28 +481,6 @@ ABIArgInfo C6000ABIInfo::classifyArgumentType(QualType Ty) const {
 
   return (Ty->isPromotableIntegerType() ?
           ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
-#else
-  /***************************************************************************/
-  /* XXX DEFAULT ABI XXX                                                     */
-  /*   This section matches the DefaultABI's behavior and should ultimately  */
-  /*   be turned off.                                                        */
-  /***************************************************************************/
-  if (isAggregateTypeForABI(Ty)) {
-    // Records with non-trivial destructors/constructors should not be passed
-    // by value.
-    if (isRecordReturnIndirect(Ty, getCXXABI()))
-      return ABIArgInfo::getIndirect(0, /*ByVal=*/false);
-
-    return ABIArgInfo::getIndirect(0);
-  }
-
-  // Treat an enum type as its underlying type.
-  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
-    Ty = EnumTy->getDecl()->getIntegerType();
-
-  return (Ty->isPromotableIntegerType() ?
-          ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
-#endif
 }
 
 ABIArgInfo C6000ABIInfo::classifyReturnType(QualType RetTy) const {
