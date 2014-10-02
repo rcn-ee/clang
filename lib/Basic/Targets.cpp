@@ -5645,14 +5645,46 @@ namespace {
     }
     void getTargetDefines(const LangOptions &Opts,
                           MacroBuilder &Builder) const override {
-      Builder.defineMacro("_TMS320C6X");
-      Builder.defineMacro("__TMS320C6X__");
-      Builder.defineMacro("_LITTLE_ENDIAN");
-      Builder.defineMacro("__TI_EABI__");
-      Builder.defineMacro("__TI_32BIT_LONG__");
-      Builder.defineMacro("__SIZE_T_TYPE__", "unsigned");
+      Builder.defineMacro("__TI_LLVM__", "1");
+
+      Builder.defineMacro( "_TMS320C6X",   "1");
+      Builder.defineMacro("__TMS320C6X__", "1");
+      
+      /* XXX For now, generically target C6600.  Ultimately, multiple
+         targets should be defined. XXX */
+      Builder.defineMacro("_TMS320C6600",     "1");
+      Builder.defineMacro("_TMS320C6740",     "1");
+      Builder.defineMacro("_TMS320C6700_PLUS","1");
+      Builder.defineMacro("_TMS320C67_PLUS",  "1");
+      Builder.defineMacro("_TMS320C6700",     "1");
+      Builder.defineMacro("_TMS320C6400_PLUS","1");
+      Builder.defineMacro("_TMS320C64_PLUS",  "1");
+      Builder.defineMacro("_TMS320C6400",     "1");
+
+      Builder.defineMacro("_LITTLE_ENDIAN",    "1");
+      Builder.defineMacro("__little_endian__", "1");
+
+      Builder.defineMacro("__TI_EABI__",   "1");
+      Builder.defineMacro("__TI_ELFABI__", "1");
+
+      Builder.defineMacro("__TI_32BIT_LONG__",  "1");
+      Builder.defineMacro("__SIZE_T_TYPE__",    "unsigned");
       Builder.defineMacro("__PTRDIFF_T_TYPE__", "int");
-      Builder.defineMacro("__WCHAR_T_TYPE__", "unsigned short");
+      Builder.defineMacro("__WCHAR_T_TYPE__",   "unsigned short");
+      Builder.defineMacro("__TI_WCHAR_T_BITS__","16");
+      Builder.defineMacro("__int40_t",          "long long");
+
+      Builder.defineMacro("__near", "__attribute__((section(\"near\")))");
+      Builder.defineMacro("__far",  "__attribute__((section(\"far\")))");
+      Builder.defineMacro("__cregister",
+                                    "__attribute__((section(\"cregister\")))");
+      Builder.defineMacro("near",   "__near");
+      Builder.defineMacro("far",    "__far");
+
+      Builder.defineMacro("__INFINITY__", "(__builtin_inff())");
+      Builder.defineMacro("__I__", "((float _Complex){0.0f,1.0f})");
+
+
     }
 
     void getTargetBuiltins(const Builtin::Info *&Records,
