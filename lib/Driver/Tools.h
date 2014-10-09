@@ -187,6 +187,88 @@ namespace gcc {
   };
 } // end namespace gcc
 
+/// ti -- generic TI tool implementations
+namespace ti {
+  class LLVM_LIBRARY_VISIBILITY Common : public Tool {
+  public:
+    Common(const char *Name, const char *ShortName,
+           const ToolChain &TC) : Tool(Name, ShortName, TC) {}
+
+    void ConstructJob(Compilation &C, const JobAction &JA,
+                      const InputInfo &Output,
+                      const InputInfoList &Inputs,
+                      const llvm::opt::ArgList &TCArgs,
+                      const char *LinkingOutput) const override;
+
+    /// RenderExtraToolArgs - Render any arguments necessary to force
+    /// the particular tool mode.
+    virtual void
+        RenderExtraToolArgs(const JobAction &JA,
+                            llvm::opt::ArgStringList &CmdArgs) const = 0;
+  };
+
+  class LLVM_LIBRARY_VISIBILITY Preprocess : public Common {
+  public:
+    Preprocess(const ToolChain &TC) : Common("ti::Preprocess",
+                                             "TI preprocessor", TC)
+    {
+      assert(0 &&
+             "Separate preprocess phase on TI toolchain is not yet supported.");
+    }
+
+    bool hasGoodDiagnostics() const override { return true; }
+    bool hasIntegratedCPP() const override { return false; }
+
+    void RenderExtraToolArgs(const JobAction &JA,
+                             llvm::opt::ArgStringList &CmdArgs) const override;
+  };
+
+  class LLVM_LIBRARY_VISIBILITY Compile : public Common {
+  public:
+    Compile(const ToolChain &TC) : Common("ti::Compile",
+                                          "TI frontend", TC) {}
+
+    bool hasGoodDiagnostics() const override { return true; }
+    bool hasIntegratedCPP() const override { return true; }
+    bool hasIntegratedAssembler() const override { return true; }
+
+    void RenderExtraToolArgs(const JobAction &JA,
+                             llvm::opt::ArgStringList &CmdArgs) const override;
+  };
+
+  class LLVM_LIBRARY_VISIBILITY Link : public Tool  {
+  public:
+    Link(const ToolChain &TC) : Tool("ti::Link",
+                                     "TI linker", TC) {}
+
+    bool hasIntegratedCPP() const override { return false; }
+    bool isLinkJob() const override { return true; }
+
+    void ConstructJob(Compilation &C, const JobAction &JA,
+                                  const InputInfo &Output,
+                                  const InputInfoList &Inputs,
+                                  const llvm::opt::ArgList &Args,
+                                  const char *LinkingOutput) const override;
+  };
+
+  class LLVM_LIBRARY_VISIBILITY Assemble : public Tool  {
+  public:
+    Assemble(const ToolChain &TC) : Tool("ti::Assemble", "TI assembler", TC)
+    {
+      assert(0 &&
+             "Separate assembly phase on TI toolchain is not yet supported.");
+    }
+
+    bool hasIntegratedCPP() const override { return false; }
+
+    void ConstructJob(Compilation &C, const JobAction &JA,
+                      const InputInfo &Output,
+                      const InputInfoList &Inputs,
+                      const llvm::opt::ArgList &TCArgs,
+                      const char *LinkingOutput) const override;
+  };
+} // end namespace ti
+
 namespace hexagon {
   // For Hexagon, we do not need to instantiate tools for PreProcess, PreCompile and Compile.
   // We simply use "clang -cc1" for those actions.

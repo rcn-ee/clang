@@ -788,6 +788,34 @@ public:
                            llvm::opt::ArgStringList &CmdArgs) const override;
 };
 
+/// The Texas Instruments Toolchain
+class LLVM_LIBRARY_VISIBILITY Generic_TI : public ToolChain {
+public:
+  Generic_TI(const Driver &D, const llvm::Triple &Triple,
+              const llvm::opt::ArgList &Args);
+  ~Generic_TI();
+
+  void printVerboseInfo(raw_ostream &OS) const override;
+
+  bool IsUnwindTablesDefault() const override;
+  bool isPICDefault() const override;
+  bool isPIEDefault() const override;
+  bool isPICDefaultForced() const override;
+  bool IsIntegratedAssemblerDefault() const override;
+
+protected:
+  Tool *getTool(Action::ActionClass AC) const override;
+  Tool *buildAssembler() const override;
+  Tool *buildLinker() const override;
+
+private:
+  mutable std::unique_ptr<tools::ti::Preprocess> Preprocess;
+  mutable std::unique_ptr<tools::ti::Compile> Compile;
+
+public:
+  Tool *SelectTool(const JobAction &JA) const override;
+};
+
 } // end namespace toolchains
 } // end namespace driver
 } // end namespace clang

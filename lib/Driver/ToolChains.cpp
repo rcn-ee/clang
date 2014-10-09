@@ -3490,3 +3490,69 @@ void XCore::AddCXXStdlibLibArgs(const ArgList &Args,
                                 ArgStringList &CmdArgs) const {
   // We don't output any lib args. This is handled by xcc.
 }
+
+/// Generic_TI - A tool chain using the TI toolchain to perform
+/// all subcommands
+Generic_TI::Generic_TI(const Driver &D, const llvm::Triple& Triple,
+                         const ArgList &Args)
+  : ToolChain(D, Triple, Args)
+{
+  getProgramPaths().push_back(getDriver().getInstalledDir());
+  if (getDriver().getInstalledDir() != getDriver().Dir)
+    getProgramPaths().push_back(getDriver().Dir);
+}
+
+Generic_TI::~Generic_TI() {
+}
+
+Tool *Generic_TI::getTool(Action::ActionClass AC) const {
+  switch (AC) {
+  case Action::PreprocessJobClass:
+    if (!Preprocess)
+      Preprocess.reset(new tools::ti::Preprocess(*this));
+    return Preprocess.get();
+  case Action::CompileJobClass:
+    if (!Compile)
+      Compile.reset(new tools::ti::Compile(*this));
+    return Compile.get();
+  default:
+    return ToolChain::getTool(AC);
+  }
+}
+
+Tool *Generic_TI::buildAssembler() const {
+  return new tools::ti::Assemble(*this);
+}
+
+Tool *Generic_TI::buildLinker() const {
+  return new tools::ti::Link(*this);
+}
+
+void Generic_TI::printVerboseInfo(raw_ostream &OS) const {
+  // Print the information about how we detected the TI installation.
+}
+
+bool Generic_TI::IsUnwindTablesDefault() const {
+  return false;
+}
+
+bool Generic_TI::isPICDefault() const {
+  return false;
+}
+
+bool Generic_TI::isPIEDefault() const {
+  return false;
+}
+
+bool Generic_TI::isPICDefaultForced() const {
+  return false;
+}
+
+bool Generic_TI::IsIntegratedAssemblerDefault() const {
+    return true;
+}
+
+Tool *Generic_TI::SelectTool(const JobAction &JA) const {
+  Action::ActionClass AC = JA.getKind();
+  return getTool(AC);
+}

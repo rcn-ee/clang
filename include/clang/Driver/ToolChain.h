@@ -148,7 +148,7 @@ public:
   }
 
   /// Choose a tool to use to handle the action \p JA.
-  Tool *SelectTool(const JobAction &JA) const;
+  virtual Tool *SelectTool(const JobAction &JA) const;
 
   // Helper methods
 

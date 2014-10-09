@@ -5113,6 +5113,207 @@ void gcc::Link::RenderExtraToolArgs(const JobAction &JA,
   // The types are (hopefully) good enough.
 }
 
+/* Default job construction -- Contains generic cl6x options.  Additional
+ * options are specified via RenderExtraToolArgs */
+void ti::Common::ConstructJob(Compilation &C, const JobAction &JA,
+                               const InputInfo &Output,
+                               const InputInfoList &Inputs,
+                               const ArgList &Args,
+                               const char *LinkingOutput) const {
+  const Driver &D = getToolChain().getDriver();
+  ArgStringList CmdArgs;
+
+  for (auto it = Args.begin(), ie = Args.end(); it != ie; it++)
+  {
+    Option      option = (*it)->getOption();
+    std::string value  = (*it)->getNumValues() ? (*it)->getValue()
+                                               : "";
+    /* Switch Families */
+    // Forward all -W arguments
+    if ((*it)->getOption().matches(options::OPT_W_Group))
+    {
+      (*it)->render(Args, CmdArgs);
+      (*it)->claim();
+      continue;
+    }
+
+    /* Individual Switches */
+    switch (option.getID())
+    {
+
+      /* Generic Handler: Unhandled Options */
+      default:
+      {
+        llvm::errs() << "TI Unhandled Option: " 
+                     << option.getName()
+                     << " # "
+                     << value
+                     << "\n";
+        break;
+      }
+
+      /* Generic Handler: Ignore but Claim */
+      case options::OPT_target:
+      {
+        (*it)->claim();
+        break;
+      }
+      
+      /* Generic Handler: Ignore, Don't Claim */
+      case options::OPT_mlinker_version_EQ:
+      {
+        break;
+      }
+
+      /* Specific Handlers: */
+      case options::OPT_INPUT:  /* Input file */
+      {
+        /* Claim and take as-is */
+        (*it)->claim();
+        (*it)->render(Args, CmdArgs);
+        break;
+      }
+      case options::OPT_v: /* Verbose Output */
+      {
+        (*it)->claim();
+        CmdArgs.push_back("--v");
+        CmdArgs.push_back("--f");
+        break;
+      }
+      case options::OPT_std_EQ: /* Language Standard */
+      {
+        if (value.compare("c89") == 0)
+        {
+          CmdArgs.push_back("--strict_ansi");
+        }
+        else if (value.compare("c99") == 0)
+        {
+          CmdArgs.push_back("--c99");
+          CmdArgs.push_back("--strict_ansi");
+        }
+        else if (value.compare("gnu89") == 0)
+        {
+          /* Default mode */
+        }
+        else if (value.compare("gnu99") == 0)
+        {
+          CmdArgs.push_back("--c99");
+        }
+        else
+        {
+          /* Break without claiming */
+          llvm::errs() << "TI Unrecognized Language: "
+                       << value << "\n";
+          break;
+        }
+        (*it)->claim();
+        break;
+      }
+      case options::OPT_o: /* Optimization */
+      {
+        (*it)->claim();
+        /* We only handle certain levels */
+        if (value.compare("0") == 0)      CmdArgs.push_back("-o0");
+        else if (value.compare("1") == 0) CmdArgs.push_back("-o1");
+        else if (value.compare("2") == 0) CmdArgs.push_back("-o2");
+        else if (value.compare("3") == 0) CmdArgs.push_back("-o3");
+        else
+        {
+          llvm::errs() << "TI Unhandled Optimization Level: "
+                       << value << "\n";
+        }
+
+        break;
+      }
+    }
+  } /* for (auto it = Args.begin(), ie = Args.end(); it != ie; it++) */
+  
+  RenderExtraToolArgs(JA, CmdArgs);
+
+  // Set Output
+  if (Output.isFilename()) {
+    CmdArgs.push_back("--output_file");
+    CmdArgs.push_back(Output.getFilename());
+  } else {
+    assert(0 && "Output destination is not a file!");
+  }
+
+  // Disallow certain inputs
+  for (InputInfoList::const_iterator
+         it = Inputs.begin(), ie = Inputs.end(); it != ie; ++it) {
+    const InputInfo &II = *it;
+
+    if (II.getType() == types::TY_LLVM_IR || II.getType() == types::TY_LTO_IR ||
+        II.getType() == types::TY_LTO_BC)
+    {
+      D.Diag(diag::err_drv_no_linker_llvm_support)
+        << getToolChain().getTripleString();
+    }
+    else if (II.getType() == types::TY_AST)
+    {
+      D.Diag(diag::err_drv_no_ast_support)
+        << getToolChain().getTripleString();
+    }
+    else if (II.getType() == types::TY_ModuleFile)
+    {
+      D.Diag(diag::err_drv_no_module_support)
+        << getToolChain().getTripleString();
+    }
+  }
+
+  const char *toolName = "";
+  if      (getToolChain().getTriple().getArch() == llvm::Triple::c6000)
+    toolName = "cl6x";
+  else if (getToolChain().getTriple().getArch() == llvm::Triple::msp430)
+    toolName = "cl430";
+  else assert(0 && "Unexpected architecture for TI toolchain");
+
+  const char *Exec =
+    Args.MakeArgString(getToolChain().GetProgramPath(toolName));
+  C.addCommand(new Command(JA, *this, Exec, CmdArgs));
+}
+
+void ti::Preprocess::RenderExtraToolArgs(const JobAction &JA,
+                                          ArgStringList &CmdArgs) const {
+  CmdArgs.push_back("-E");
+}
+
+void ti::Compile::RenderExtraToolArgs(const JobAction &JA,
+                                       ArgStringList &CmdArgs) const {
+  CmdArgs.push_back("--use_llvm");
+}
+
+void ti::Assemble::ConstructJob(Compilation &C, const JobAction &JA,
+                                      const InputInfo &Output,
+                                      const InputInfoList &Inputs,
+                                      const ArgList &Args,
+                                      const char *LinkingOutput) const {
+  assert(0 && "Calling TI assembler separately not implemented");
+}
+
+void ti::Link::ConstructJob(Compilation &C, const JobAction &JA,
+                                  const InputInfo &Output,
+                                  const InputInfoList &Inputs,
+                                  const ArgList &Args,
+                                  const char *LinkingOutput) const {
+  ArgStringList CmdArgs;
+  CmdArgs.push_back("-c");
+  AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs);
+  CmdArgs.push_back("--output_file");
+  CmdArgs.push_back(Output.getFilename());
+
+  const char *toolName = "";
+  if      (getToolChain().getTriple().getArch() == llvm::Triple::c6000)
+    toolName = "lnk6x";
+  else if (getToolChain().getTriple().getArch() == llvm::Triple::msp430)
+    toolName = "lnk430";
+  else assert(0 && "Unexpected architecture for TI toolchain");
+
+  const char *Exec =
+    Args.MakeArgString(getToolChain().GetProgramPath(toolName));
+  C.addCommand(new Command(JA, *this, Exec, CmdArgs));
+}
+
 // Hexagon tools start.
 void hexagon::Assemble::RenderExtraToolArgs(const JobAction &JA,
                                         ArgStringList &CmdArgs) const {
