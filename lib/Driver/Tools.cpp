@@ -5270,7 +5270,7 @@ void ti::Common::ConstructJob(Compilation &C, const JobAction &JA,
 
   const char *Exec =
     Args.MakeArgString(getToolChain().GetProgramPath(toolName));
-  C.addCommand(new Command(JA, *this, Exec, CmdArgs));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
 }
 
 void ti::Preprocess::RenderExtraToolArgs(const JobAction &JA,
@@ -5311,7 +5311,7 @@ void ti::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
   const char *Exec =
     Args.MakeArgString(getToolChain().GetProgramPath(toolName));
-  C.addCommand(new Command(JA, *this, Exec, CmdArgs));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
 }
 
 // Hexagon tools start.
