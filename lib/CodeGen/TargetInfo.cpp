@@ -459,28 +459,29 @@ llvm::Value *C6000ABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
 ABIArgInfo C6000ABIInfo::classifyArgumentType(QualType Ty) const {
   uint64_t size = getContext().getTypeSize(Ty);
 
-  if ((isAggregateTypeForABI(Ty) && size > 64)
-      || (Ty->isVectorType() && size > 128)) {
-
+  // In OpenCL mode, vector types are passed by value. 
+  if (!getContext().getLangOpts().OpenCL &&
+      ((isAggregateTypeForABI(Ty) && size > 64)
+      || (Ty->isVectorType() && size > 128)))
     return ABIArgInfo::getIndirect(0, /*ByVal=*/true);
-  }
-  else
-  {
-    // Pass the argument directly on the stack and do not allow the aggregate
-    // to be split into individual members.
-    return ABIArgInfo::getDirect(
-          /* Type           = */ (llvm::Type *) nullptr,
-          /* Offset         = */ 0u,
-          /* Padding        = */ (llvm::Type *) nullptr, 
-          /* CanBeFlattened = */ false);
-  }
+
+  if (isAggregateTypeForABI(Ty))
+    return ABIArgInfo::getIndirect(0);
 
   // Treat an enum type as its underlying type.
   if (const EnumType *EnumTy = Ty->getAs<EnumType>())
     Ty = EnumTy->getDecl()->getIntegerType();
 
   return (Ty->isPromotableIntegerType() ?
-          ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
+          ABIArgInfo::getExtend() :
+          // Pass the argument directly on the stack and do not allow 
+          // the aggregate to be split into individual members.
+          ABIArgInfo::getDirect(
+          /* Type           = */ (llvm::Type *) nullptr,
+          /* Offset         = */ 0u,
+          /* Padding        = */ (llvm::Type *) nullptr, 
+          /* CanBeFlattened = */ false));
+
 }
 
 ABIArgInfo C6000ABIInfo::classifyReturnType(QualType RetTy) const {

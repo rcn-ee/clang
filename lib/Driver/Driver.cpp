@@ -2083,7 +2083,8 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         TC = new toolchains::XCore(*this, Target, Args);
         break;
       }
-      if (Target.getArch() == llvm::Triple::c6000 ||
+      // TI OpenCL mode on C6x requires traditional Clang option behavior. 
+      if (/*Target.getArch() == llvm::Triple::c6000 ||*/
           Target.getArch() == llvm::Triple::msp430) {
         TC = new toolchains::Generic_TI(*this, Target, Args);
         break;

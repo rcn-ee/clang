@@ -2211,7 +2211,8 @@ void CastOperation::CheckCStyleCast() {
   if (Self.getLangOpts().OpenCL && DestType->isPointerType() &&
       SrcType->isPointerType()) {
     const PointerType *DestPtr = DestType->getAs<PointerType>();
-    if (!DestPtr->isAddressSpaceOverlapping(*SrcType->getAs<PointerType>())) {
+    // Disable this check for now. Revisit when TI OpenCL runtime switches to generics
+    if (0 && !DestPtr->isAddressSpaceOverlapping(*SrcType->getAs<PointerType>())) {
       Self.Diag(OpRange.getBegin(),
                 diag::err_typecheck_incompatible_address_space)
           << SrcType << DestType << Sema::AA_Casting

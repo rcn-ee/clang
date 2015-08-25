@@ -5632,6 +5632,15 @@ namespace {
 }
 
 namespace {
+  static const unsigned C6000OpenCLAddrSpaceMap[] = {
+    1,    // opencl_global
+    3,    // opencl_local
+    2,    // opencl_constant
+    4,    // opencl_generic
+    0,    // cuda_device
+    0,    // cuda_constant
+    0     // cuda_shared
+  };
   class C6000TargetInfo : public TargetInfo {
     static const Builtin::Info BuiltinInfo[];
     static const char * const GCCRegNames[];
@@ -5640,8 +5649,10 @@ namespace {
       BigEndian = false;
       TLSSupported = false;
       LargeArrayAlign = 128;
-      DescriptionString = "e-m:e-p:32:32-i64:64-v128:64:128-n32-S64";
+      DescriptionString = "e-m:e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-"
+          "v96:128-v192:256-v256:256-v512:512-v1024:1024";
       WCharType = UnsignedShort;
+      AddrSpaceMap = &C6000OpenCLAddrSpaceMap;
     }
     void getTargetDefines(const LangOptions &Opts,
                           MacroBuilder &Builder) const override {
