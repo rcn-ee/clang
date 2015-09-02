@@ -459,7 +459,9 @@ llvm::Value *C6000ABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
 ABIArgInfo C6000ABIInfo::classifyArgumentType(QualType Ty) const {
   uint64_t size = getContext().getTypeSize(Ty);
 
-  // In OpenCL mode, vector types are passed by value. 
+  // In OpenCL mode, clang treats vector types as direct arguments
+  // The translator will convert vector arguments to ARGREFs if container
+  // size > 128.
   if (!getContext().getLangOpts().OpenCL &&
       ((isAggregateTypeForABI(Ty) && size > 64)
       || (Ty->isVectorType() && size > 128)))
