@@ -646,8 +646,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
 
   // If an optional clang TargetInfo description string was passed in, use it to
   // verify the LLVM TargetMachine's DataLayout.
-  // Disable this check because C6000 does not define any subtargets
-  if (0 && AsmHelper.TM && !TDesc.empty()) {
+  if (AsmHelper.TM && AsmHelper.TM->getSubtargetImpl() && !TDesc.empty()) {
     std::string DLDesc = AsmHelper.TM->getSubtargetImpl()
                              ->getDataLayout()
                              ->getStringRepresentation();
