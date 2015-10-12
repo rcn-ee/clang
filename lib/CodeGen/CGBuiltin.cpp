@@ -6608,6 +6608,8 @@ Value *CodeGenFunction::EmitC6000BuiltinExpr(unsigned BuiltinID,
       case C6000::BI_amemd8: id = Intrinsic::c6000_amemd8; n = 1; break;
       case C6000::BI_amem4: id = Intrinsic::c6000_amem4; n = 1; break;
       case C6000::BI_amem2: id = Intrinsic::c6000_amem2; n = 1; break;
+      case C6000::BI_davgu4 : id = Intrinsic::c6000_davgu4; n = 2; break;
+      case C6000::BI_davg2 : id = Intrinsic::c6000_davg2; n = 2; break;
    }
 
    if (id == Intrinsic::not_intrinsic)  return NULL;
