@@ -6696,6 +6696,7 @@ Value *CodeGenFunction::EmitC6000BuiltinExpr(unsigned BuiltinID,
       case C6000::BI_cmatmpyr1 : id = Intrinsic::c6000_cmatmpyr1 ; n=2; break;
       case C6000::BI_qsmpy32r1 : id = Intrinsic::c6000_qsmpy32r1 ; n=2; break;
       case C6000::BI_xorll_c : id = Intrinsic::c6000_xorll_c ; n=2; break;
+      case C6000::BI_add40_u32 : id = Intrinsic::c6000_add40_u32 ; n=2; break;
    }
 
    if (id == Intrinsic::not_intrinsic)  return NULL;

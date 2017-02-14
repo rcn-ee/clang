@@ -274,5 +274,6 @@ BUILTIN(_cmatmpy,    "V4iV4sV8s", "n")
 BUILTIN(_cmatmpyr1,  "V4sV4sV8s", "n")
 BUILTIN(_qsmpy32r1,  "V4iV4iV4i", "n")
 BUILTIN(_xorll_c,    "WiiWi", "n")
+BUILTIN(_add40_u32,  "UWiUiUi", "n")
 
 #undef BUILTIN
