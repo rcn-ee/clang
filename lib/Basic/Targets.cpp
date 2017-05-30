@@ -5763,24 +5763,136 @@ namespace {
 namespace {
   class C7000TargetInfo : public TargetInfo {
     static const Builtin::Info BuiltinInfo[];
-    static const char * const GCCRegNames[];
+    std::string desc;
   public:
     C7000TargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
-      BigEndian = false;
       TLSSupported = false;
-      LargeArrayAlign = 128;
-      DescriptionString = "e-m:e-p:32:32-i64:64-v128:64:128-n32-S64";
+      IntWidth = 32;
+      IntAlign = 32;
+      LongWidth = 64;
+      LongLongWidth = 64;
+      LongAlign = LongLongAlign = 64;
+      PointerWidth = 64;
+      PointerAlign = 64;
+      SuitableAlign = 64;
+      SizeType = UnsignedLong;
+      IntMaxType = SignedLong;
+      IntPtrType = SignedLong;
+      PtrDiffType = SignedLong;
+      SigAtomicType = SignedLong;
+      WCharType = UnsignedInt;
+      // must match llvm/lib/Target/C7000/C7000TargetMachine.cpp
+      desc = "e-m:e-p:64:64:64-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-a:0:32-n32:64-S64";
+      switch (Triple.getArch())
+      {
+        case llvm::Triple::c7x:
+           BigEndian = false;
+  	 break;
+        case llvm::Triple::c7xe:
+           BigEndian = true;
+  	   desc[0] = 'E';
+  	 break;
+        default: assert(false && "Unknown target arch in C7000TargetInfo"); 
+      }
+      DescriptionString = desc.c_str();
     }
     void getTargetDefines(const LangOptions &Opts,
                           MacroBuilder &Builder) const override {
-      Builder.defineMacro("_TMS320C7X");
-      Builder.defineMacro("__TMS320C7X__");
-      Builder.defineMacro("_LITTLE_ENDIAN");
-      Builder.defineMacro("__TI_EABI__");
-      Builder.defineMacro("__TI_32BIT_LONG__");
-      Builder.defineMacro("__SIZE_T_TYPE__", "unsigned");
-      Builder.defineMacro("__PTRDIFF_T_TYPE__", "int");
-      Builder.defineMacro("__WCHAR_T_TYPE__", "unsigned short");
+      Builder.defineMacro("__TI_LLVM__", "1");
+      Builder.defineMacro("__TI_GNU_ATTRIBUTE_SUPPORT__", "1");
+      Builder.defineMacro("__TI_STRICT_FP_MODE__", "1");
+
+      Builder.defineMacro("__C7000__", "1");
+      Builder.defineMacro("__C7100__", "1");
+      
+      switch (getTriple().getArch())
+      {
+        case llvm::Triple::c7x:
+          Builder.defineMacro("_LITTLE_ENDIAN",    "1");
+          Builder.defineMacro("__little_endian__", "1");
+  	 break;
+        case llvm::Triple::c7xe:
+          Builder.defineMacro("_BIG_ENDIAN",    "1");
+          Builder.defineMacro("__big_endian__", "1");
+  	 break;
+        default: assert(false && "Unknown target arch in C7000TargetInfo"); 
+      }
+
+      Builder.defineMacro("__TI_EABI__",   "1");
+
+      Builder.defineMacro("__SIZE_T_TYPE__",    "unsigned long");
+      Builder.defineMacro("__PTRDIFF_T_TYPE__", "long");
+      Builder.defineMacro("__WCHAR_T_TYPE__",   "unsigned int");
+      Builder.defineMacro("__TI_WCHAR_T_BITS__","32");
+
+      Builder.defineMacro("__INFINITY__", "(__builtin_inff())");
+      Builder.defineMacro("__I__", "((float _Complex){0.0f,1.0f})");
+
+      Builder.defineMacro("__as_char(__x)", "__builtin_astype(__x, char)");
+      Builder.defineMacro("__as_uchar(__x)", "__builtin_astype(__x, unsigned char)");
+      Builder.defineMacro("__as_short(__x)", "__builtin_astype(__x, short)");
+      Builder.defineMacro("__as_ushort(__x)", "__builtin_astype(__x, unsigned short)");
+      Builder.defineMacro("__as_int(__x)", "__builtin_astype(__x, int)");
+      Builder.defineMacro("__as_uint(__x)", "__builtin_astype(__x, unsigned int)");
+      Builder.defineMacro("__as_long(__x)", "__builtin_astype(__x, long)");
+      Builder.defineMacro("__as_ulong(__x)", "__builtin_astype(__x, unsigned long)");
+      Builder.defineMacro("__as_float(__x)", "__builtin_astype(__x, float)");
+      Builder.defineMacro("__as_double(__x)", "__builtin_astype(__x, double)");
+
+      Builder.defineMacro("__as_char2(__x)", "__builtin_astype(__x, char2)");
+      Builder.defineMacro("__as_uchar2(__x)", "__builtin_astype(__x, uchar2)");
+      Builder.defineMacro("__as_short2(__x)", "__builtin_astype(__x, short2)");
+      Builder.defineMacro("__as_ushort2(__x)", "__builtin_astype(__x, ushort2)");
+      Builder.defineMacro("__as_int2(__x)", "__builtin_astype(__x, int2)");
+      Builder.defineMacro("__as_uint2(__x)", "__builtin_astype(__x, uint2)");
+      Builder.defineMacro("__as_long2(__x)", "__builtin_astype(__x, long2)");
+      Builder.defineMacro("__as_ulong2(__x)", "__builtin_astype(__x, ulong2)");
+      Builder.defineMacro("__as_float2(__x)", "__builtin_astype(__x, float2)");
+      Builder.defineMacro("__as_double2(__x)", "__builtin_astype(__x, double2)");
+
+      Builder.defineMacro("__as_char3(__x)", "__builtin_astype(__x, char3)");
+      Builder.defineMacro("__as_uchar3(__x)", "__builtin_astype(__x, uchar3)");
+      Builder.defineMacro("__as_short3(__x)", "__builtin_astype(__x, short3)");
+      Builder.defineMacro("__as_ushort3(__x)", "__builtin_astype(__x, ushort3)");
+      Builder.defineMacro("__as_int3(__x)", "__builtin_astype(__x, int3)");
+      Builder.defineMacro("__as_uint3(__x)", "__builtin_astype(__x, uint3)");
+      Builder.defineMacro("__as_long3(__x)", "__builtin_astype(__x, long3)");
+      Builder.defineMacro("__as_ulong3(__x)", "__builtin_astype(__x, ulong3)");
+      Builder.defineMacro("__as_float3(__x)", "__builtin_astype(__x, float3)");
+      Builder.defineMacro("__as_double3(__x)", "__builtin_astype(__x, double3)");
+
+      Builder.defineMacro("__as_char4(__x)", "__builtin_astype(__x, char4)");
+      Builder.defineMacro("__as_uchar4(__x)", "__builtin_astype(__x, uchar4)");
+      Builder.defineMacro("__as_short4(__x)", "__builtin_astype(__x, short4)");
+      Builder.defineMacro("__as_ushort4(__x)", "__builtin_astype(__x, ushort4)");
+      Builder.defineMacro("__as_int4(__x)", "__builtin_astype(__x, int4)");
+      Builder.defineMacro("__as_uint4(__x)", "__builtin_astype(__x, uint4)");
+      Builder.defineMacro("__as_long4(__x)", "__builtin_astype(__x, long4)");
+      Builder.defineMacro("__as_ulong4(__x)", "__builtin_astype(__x, ulong4)");
+      Builder.defineMacro("__as_float4(__x)", "__builtin_astype(__x, float4)");
+      Builder.defineMacro("__as_double4(__x)", "__builtin_astype(__x, double4)");
+
+      Builder.defineMacro("__as_char8(__x)", "__builtin_astype(__x, char8)");
+      Builder.defineMacro("__as_uchar8(__x)", "__builtin_astype(__x, uchar8)");
+      Builder.defineMacro("__as_short8(__x)", "__builtin_astype(__x, short8)");
+      Builder.defineMacro("__as_ushort8(__x)", "__builtin_astype(__x, ushort8)");
+      Builder.defineMacro("__as_int8(__x)", "__builtin_astype(__x, int8)");
+      Builder.defineMacro("__as_uint8(__x)", "__builtin_astype(__x, uint8)");
+      Builder.defineMacro("__as_long8(__x)", "__builtin_astype(__x, long8)");
+      Builder.defineMacro("__as_ulong8(__x)", "__builtin_astype(__x, ulong8)");
+      Builder.defineMacro("__as_float8(__x)", "__builtin_astype(__x, float8)");
+      Builder.defineMacro("__as_double8(__x)", "__builtin_astype(__x, double8)");
+
+      Builder.defineMacro("__as_char16(__x)", "__builtin_astype(__x, char16)");
+      Builder.defineMacro("__as_uchar16(__x)", "__builtin_astype(__x, uchar16)");
+      Builder.defineMacro("__as_short16(__x)", "__builtin_astype(__x, short16)");
+      Builder.defineMacro("__as_ushort16(__x)", "__builtin_astype(__x, ushort16)");
+      Builder.defineMacro("__as_int16(__x)", "__builtin_astype(__x, int16)");
+      Builder.defineMacro("__as_uint16(__x)", "__builtin_astype(__x, uint16)");
+      Builder.defineMacro("__as_long16(__x)", "__builtin_astype(__x, long16)");
+      Builder.defineMacro("__as_ulong16(__x)", "__builtin_astype(__x, ulong16)");
+      Builder.defineMacro("__as_float16(__x)", "__builtin_astype(__x, float16)");
+      Builder.defineMacro("__as_double16(__x)", "__builtin_astype(__x, double16)");
     }
 
     void getTargetBuiltins(const Builtin::Info *&Records,
@@ -5790,7 +5902,7 @@ namespace {
     }
 
     bool hasFeature(StringRef Feature) const override {
-      return Feature == "c6000";
+      return Feature == "c7x";
     }
     void getGCCRegNames(const char * const *&Names,
                         unsigned &NumNames) const override;
@@ -5815,21 +5927,10 @@ namespace {
     }
   };
 
-  const char * const C7000TargetInfo::GCCRegNames[] = {
-    "A0",  "A1",  "A2",  "A3",  "A4",  "A5",  "A6",  "A7",  "A8",  "A9",
-    "A10", "A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19",
-    "A20", "A21", "A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29",
-    "A30", "A31",
-    "B0",  "B1",  "B2",  "B3",  "B4",  "B5",  "B6",  "B7",  "B8",  "B9",
-    "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18", "B19",
-    "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29",
-    "B30", "B31"
-  };
-
   void C7000TargetInfo::getGCCRegNames(const char * const *&Names,
                                         unsigned &NumNames) const {
-    Names = GCCRegNames;
-    NumNames = llvm::array_lengthof(GCCRegNames);
+    Names = 0;
+    NumNames = 0;
   }
 
   const Builtin::Info C7000TargetInfo::BuiltinInfo[] = {
@@ -6888,7 +6989,8 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
   case llvm::Triple::c6000:
     return new C6000TargetInfo(Triple);
 
-  case llvm::Triple::c7000:
+  case llvm::Triple::c7x:
+  case llvm::Triple::c7xe:
     return new C7000TargetInfo(Triple);
 
   case llvm::Triple::mips:

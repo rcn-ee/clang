@@ -1766,7 +1766,8 @@ Value *CodeGenFunction::EmitTargetBuiltinExpr(unsigned BuiltinID,
     return EmitR600BuiltinExpr(BuiltinID, E);
   case llvm::Triple::c6000:
     return EmitC6000BuiltinExpr(BuiltinID, E);
-  case llvm::Triple::c7000:
+  case llvm::Triple::c7x:
+  case llvm::Triple::c7xe:
     return EmitC7000BuiltinExpr(BuiltinID, E);
   case llvm::Triple::msp430:
     return EmitMSP430BuiltinExpr(BuiltinID, E);
