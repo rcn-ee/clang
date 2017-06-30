@@ -6707,7 +6707,24 @@ Value *CodeGenFunction::EmitC6000BuiltinExpr(unsigned BuiltinID,
 
 Value *CodeGenFunction::EmitC7000BuiltinExpr(unsigned BuiltinID,
                                              const CallExpr *E) {
-   return EmitC6000BuiltinExpr(BuiltinID, E);
+    Intrinsic::ID id = Intrinsic::not_intrinsic;
+    unsigned      n  = 0;
+
+    switch (BuiltinID)
+    {
+        case C7000::BI__recip:
+        {
+            Value *V = EmitScalarExpr(E->getArg(0));
+            Value *F = CGM.getIntrinsic(Intrinsic::c7x_recip, V->getType());
+            llvm::CallInst *Call = Builder.CreateCall(F, V);
+            Call->setDoesNotAccessMemory();
+            return Call;
+        }
+    }
+
+    if (id == Intrinsic::not_intrinsic)  return NULL;
+
+    return EmitIntrinsicCall(id, n, E);
 }
 
 Value *CodeGenFunction::EmitMSP430BuiltinExpr(unsigned BuiltinID,
