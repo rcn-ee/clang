@@ -5761,6 +5761,16 @@ namespace {
 }
 
 namespace {
+  static const unsigned C7000OpenCLAddrSpaceMap[] = {
+    1,    // opencl_global
+    3,    // opencl_local
+    2,    // opencl_constant
+    4,    // opencl_generic
+    0,    // cuda_device
+    0,    // cuda_constant
+    0     // cuda_shared
+  };
+
   class C7000TargetInfo : public TargetInfo {
     static const Builtin::Info BuiltinInfo[];
     std::string desc;
@@ -5781,6 +5791,7 @@ namespace {
       PtrDiffType = SignedLong;
       SigAtomicType = SignedLong;
       WCharType = UnsignedInt;
+      AddrSpaceMap = &C7000OpenCLAddrSpaceMap;
       // must match llvm/lib/Target/C7000/C7000TargetMachine.cpp
       desc = "e-m:e-p:64:64:64-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-a:0:32-n32:64-S64";
       switch (Triple.getArch())
