@@ -15,5 +15,6 @@
 // The format of this database matches clang/Basic/Builtins.def.
 
 // Add C7x specific builtins here...
+BUILTIN(__recip, "dd", "n")
 
 #undef BUILTIN

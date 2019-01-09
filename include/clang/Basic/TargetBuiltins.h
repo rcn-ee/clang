@@ -201,7 +201,8 @@ namespace clang {
     enum {
         LastTIBuiltin = clang::Builtin::FirstTSBuiltin-1,
         LastTXNBuiltin = clang::TI::LastTSBuiltin-1,
-        LastC6000Builtin = clang::C6000::LastTSBuiltin-1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/BuiltinsC6000.def"
 #define BUILTIN(ID, TYPE, ATTRS) BI##ID,
 #include "clang/Basic/BuiltinsC7000.def"
         LastTSBuiltin
